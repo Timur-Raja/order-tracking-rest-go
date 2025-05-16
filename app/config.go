@@ -19,7 +19,6 @@ type WebServerConfig struct {
 type DBConfig struct {
 	Host     string
 	Port     string
-	User     string
 	Password string
 	Name     string
 	Username string
@@ -28,35 +27,26 @@ type DBConfig struct {
 func (c *Config) LoadConfig() error {
 	// Load environment variables from .env file
 	var err error
-	err = godotenv.Load()
-	if err != nil {
+	if err = godotenv.Load(); err != nil {
 		return ErrNoEnvFileFound
 	}
 
-	if c.DB.Host, err = getEnv("DB_HOST"); err != nil {
-		return err
+	var envMap = map[string]*string{
+		"DB_HOST":     &c.DB.Host,
+		"DB_PORT":     &c.DB.Port,
+		"DB_PASSWORD": &c.DB.Password,
+		"DB_NAME":     &c.DB.Name,
+		"DB_USERNAME": &c.DB.Username,
+		"APP_PORT":    &c.WebServer.Port,
+		"APP_HOST":    &c.WebServer.Host,
 	}
-	if c.DB.Port, err = getEnv("DB_PORT"); err != nil {
-		return err
+
+	for key, value := range envMap {
+		if *value, err = getEnv(key); err != nil {
+			return err
+		}
 	}
-	if c.DB.User, err = getEnv("DB_USER"); err != nil {
-		return err
-	}
-	if c.DB.Password, err = getEnv("DB_PASSWORD"); err != nil {
-		return err
-	}
-	if c.DB.Name, err = getEnv("DB_NAME"); err != nil {
-		return err
-	}
-	if c.DB.Username, err = getEnv("DB_USERNAME"); err != nil {
-		return err
-	}
-	if c.WebServer.Port, err = getEnv("APP_PORT"); err != nil {
-		return err
-	}
-	if c.WebServer.Host, err = getEnv("APP_HOST"); err != nil {
-		return err
-	}
+
 	return nil
 }
 
