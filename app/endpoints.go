@@ -3,10 +3,12 @@ package app
 import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/timur-raja/order-tracking-rest-go/app/order/orderapi"
-	"github.com/timur-raja/order-tracking-rest-go/app/users/userapi"
+	"github.com/timur-raja/order-tracking-rest-go/app/user/userapi"
 
 	"github.com/gin-gonic/gin"
 )
+
+// endpoints.go setsup the API endpoints for the application.
 
 type Router struct {
 	DB *pgxpool.Pool
@@ -17,8 +19,8 @@ func NewRouter(db *pgxpool.Pool) *Router {
 }
 
 func (r *Router) Setup(router *gin.Engine) {
-	router.GET(
-		"/users", userapi.UserListHandler(r.DB))
+	router.POST(
+		"/signup", userapi.UserCreateHandler(r.DB))
 	router.GET(
 		"/users/:user_id", userapi.UserReadHandler(r.DB))
 	router.POST(

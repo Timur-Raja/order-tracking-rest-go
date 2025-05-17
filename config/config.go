@@ -1,10 +1,12 @@
-package app
+package config
 
 import (
 	"os"
 
 	"github.com/joho/godotenv"
 )
+
+// config loads the application's configuration from environment variables
 
 type Config struct {
 	WebServer WebServerConfig
@@ -25,7 +27,6 @@ type DBConfig struct {
 }
 
 func (c *Config) LoadConfig() error {
-	// Load environment variables from .env file
 	var err error
 	if err = godotenv.Load(); err != nil {
 		return ErrNoEnvFileFound

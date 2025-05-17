@@ -5,14 +5,14 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-type userReadHandlerStruct struct {
+type userReadHandler struct {
 	db *pgxpool.Pool
 }
 
 func UserReadHandler(db *pgxpool.Pool) gin.HandlerFunc {
-	h := &userReadHandlerStruct{db: db}
+	h := &userReadHandler{db: db}
 	return h.Exec
 }
-func (h *userReadHandlerStruct) Exec(c *gin.Context) {
+func (h *userReadHandler) Exec(c *gin.Context) {
 	return
 }

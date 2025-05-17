@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/timur-raja/order-tracking-rest-go/app"
+	"github.com/timur-raja/order-tracking-rest-go/config"
 )
 
-func Init(cfg *app.Config) (*pgxpool.Pool, error) {
+func Init(cfg *config.Config) (*pgxpool.Pool, error) {
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
 		cfg.DB.Username,
 		cfg.DB.Password,

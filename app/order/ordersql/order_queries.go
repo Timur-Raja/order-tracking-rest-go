@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/georgysavva/scany/pgxscan"
-	db "github.com/timur-raja/order-tracking-rest-go/DB"
 	"github.com/timur-raja/order-tracking-rest-go/app/order"
+	"github.com/timur-raja/order-tracking-rest-go/db"
 )
 
 type GetOrderList struct {

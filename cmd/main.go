@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"log"
 
-	db "github.com/timur-raja/order-tracking-rest-go/DB"
 	"github.com/timur-raja/order-tracking-rest-go/app"
+	"github.com/timur-raja/order-tracking-rest-go/config"
+	"github.com/timur-raja/order-tracking-rest-go/db"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,7 +18,7 @@ func main() {
 }
 
 func run() error {
-	cfg := new(app.Config)
+	cfg := new(config.Config)
 	if err := cfg.LoadConfig(); err != nil {
 		return err
 	}
@@ -28,11 +29,12 @@ func run() error {
 	}
 	defer dbConn.Close()
 
-	router := gin.Default()
+	server := gin.New()
+	server.Use(gin.Recovery(), app.ErrorLogger())
 
-	r := app.NewRouter(dbConn) // 👈 inject db here
-	r.Setup(router)
+	r := app.NewRouter(dbConn)
+	r.Setup(server)
 
 	addr := fmt.Sprintf("%s:%s", cfg.WebServer.Host, cfg.WebServer.Port)
-	return router.Run(addr)
+	return server.Run(addr)
 }
