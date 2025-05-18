@@ -5,7 +5,6 @@ type OrderCreateParams struct {
 }
 
 type OrderItemCreateParams struct {
-	s
 	ProductID int `json:"productID"`
 	Quantity  int `json:"quantity"`
 }
