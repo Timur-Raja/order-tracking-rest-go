@@ -19,6 +19,7 @@ CREATE TABLE user_sessions (
 CREATE TABLE orders (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id INT NOT NULL,
+    Status VARCHAR(20) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT  CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP,
@@ -32,6 +33,7 @@ CREATE TABLE products (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     price DECIMAL(10, 2) NOT NULL,
+    stock INT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT  CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP
@@ -47,3 +49,14 @@ CREATE TABLE order_items (
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
     FOREIGN KEY (product_id) REFERENCES products(id) 
 );
+
+
+------------------------------------------------------------------------------
+-- seeding of products - not handled in api for simplicity and time constraints
+INSERT INTO products (name, price, stock)
+VALUES
+    ('Mouse', 20, 150),
+    ('Keyboard', 80, 80),
+    ('Charger', 25, 200),
+    ('Monitor', 200, 40),
+    ('Headphones', 100, 60);

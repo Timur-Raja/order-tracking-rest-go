@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/timur-raja/order-tracking-rest-go/app"
+	"github.com/timur-raja/order-tracking-rest-go/api"
 	"github.com/timur-raja/order-tracking-rest-go/config"
 	"github.com/timur-raja/order-tracking-rest-go/db"
 
@@ -30,9 +30,9 @@ func run() error {
 	defer dbConn.Close()
 
 	server := gin.New()
-	server.Use(gin.Recovery(), app.ErrorLogger())
+	server.Use(gin.Recovery(), api.ErrorLogger())
 
-	r := app.NewRouter(dbConn)
+	r := api.NewRouter(dbConn)
 	r.Setup(server)
 
 	addr := fmt.Sprintf("%s:%s", cfg.WebServer.Host, cfg.WebServer.Port)

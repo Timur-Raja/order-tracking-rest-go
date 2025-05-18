@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/timur-raja/order-tracking-rest-go/app/user"
 
 	"github.com/georgysavva/scany/pgxscan"
@@ -14,17 +13,16 @@ import (
 type insertUserQuery struct {
 	db.BaseQuery
 	Values struct {
-		User user.User
+		user.User
 	}
-	Returned struct {
+	Returning struct {
 		ID int `db:"id"`
 	}
 }
 
-func NewInsertUserQuery(conn *pgxpool.Pool, u user.User) *insertUserQuery {
+func NewInsertUserQuery(conn db.PGExecer) *insertUserQuery {
 	return &insertUserQuery{
 		BaseQuery: db.BaseQuery{DBConn: conn},
-		Values:    struct{ User user.User }{User: u},
 	}
 }
 
@@ -35,7 +33,7 @@ func (q *insertUserQuery) Run(ctx context.Context) error {
 		RETURNING id;
     `
 	// Execute the query and scan the returned ID into q.Returned.ID
-	err := pgxscan.Get(ctx, q.DBConn, &q.Returned, query,
+	err := pgxscan.Get(ctx, q.DBConn, &q.Returning, query,
 		q.Values.User.Email,
 		q.Values.User.Password,
 		q.Values.User.Name,
@@ -50,20 +48,49 @@ func (q *insertUserQuery) Run(ctx context.Context) error {
 	return nil
 }
 
+type SelectUserByEmailQuery struct {
+	db.BaseQuery
+	Where struct {
+		Email string
+	}
+	*user.User
+}
+
+func NewSelectUserByEmailQuery(conn db.PGExecer) *SelectUserByEmailQuery {
+	return &SelectUserByEmailQuery{
+		BaseQuery: db.BaseQuery{DBConn: conn},
+		User:      &user.User{},
+	}
+}
+
+func (q *SelectUserByEmailQuery) Run(ctx context.Context) error {
+	query := `
+	SELECT *
+	FROM users
+	WHERE email = $1`
+
+	err := pgxscan.Get(ctx, q.DBConn, q.User, query,
+		q.Where.Email,
+	)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // the user view will be the user object that we return to the FE, including eventual necessary extra fields from other tables
 type selectUserViewByIDQuery struct {
 	db.BaseQuery
 	Where struct {
 		ID int
 	}
-	UserView *user.UserView
+	*user.UserView
 }
 
-func NewSelectUserViewByIDQuery(Conn *pgxpool.Pool, id int) *selectUserViewByIDQuery {
+func NewSelectUserViewByIDQuery(Conn db.PGExecer) *selectUserViewByIDQuery {
 	return &selectUserViewByIDQuery{
 		BaseQuery: db.BaseQuery{DBConn: Conn},
-		Where:     struct{ ID int }{ID: id},
-		UserView:  new(user.UserView),
+		UserView:  &user.UserView{},
 	}
 }
 
@@ -80,6 +107,5 @@ func (q *selectUserViewByIDQuery) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
 	return nil
 }

@@ -5,16 +5,17 @@ import (
 )
 
 type Order struct {
-	ID        int
-	UserID    int
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt time.Time
+	ID        int        `db:"id"`
+	UserID    int        `db:"user_id"`
+	Status    string     `db:"status"`
+	CreatedAt time.Time  `db:"created_at"`
+	UpdatedAt time.Time  `db:"updated_at"`
+	DeletedAt *time.Time `db:"deleted_at"`
 }
 
 type OrderItem struct {
-	OrderID   int
-	ProductID int
-	Quantity  int
-	Price     float64
+	OrderID   int     `db:"order_id"`
+	ProductID int     `db:"product_id"`
+	Quantity  int     `db:"quantity"`
+	Price     float32 `db:"price"`
 }

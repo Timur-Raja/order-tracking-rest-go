@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/timur-raja/order-tracking-rest-go/app"
 	"github.com/timur-raja/order-tracking-rest-go/app/user"
 	"github.com/timur-raja/order-tracking-rest-go/app/user/usersql"
 	"golang.org/x/crypto/bcrypt"
@@ -18,38 +19,39 @@ type userCreateHandler struct {
 
 func UserCreateHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	// Initialize the handler struct with the db connection
-	h := &userCreateHandler{db: db}
+	h := &userCreateHandler{
+		db:     db,
+		params: new(user.UserCreateParams),
+	}
 	return h.exec
 }
 
 func (h *userCreateHandler) exec(c *gin.Context) {
 	// load the user params from the request body
-	h.params = new(user.UserCreateParams)
 	if err := c.ShouldBindJSON(h.params); err != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
+		app.AbortWithErrorResponse(c, app.ErrFailedToLoadParams, err)
 		return
 	}
 
 	// validate user params and populate new user struct
 	if err := h.buildUser(); err != nil {
-		c.Error(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": "failed to validate params"})
+		app.AbortWithErrorResponse(c, app.ErrServerError, err)
 		return
 	}
 
 	// execute the user insert query with values read and validated from the request body
-	query := usersql.NewInsertUserQuery(h.db, *h.newUser)
+	query := usersql.NewInsertUserQuery(h.db)
+	query.Values.User = *h.newUser
 	if err := query.Run(c); err != nil {
-		c.Error(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": "failed to create the user"})
+		app.AbortWithErrorResponse(c, app.ErrServerError, err)
 		return
 	}
 
 	// fetch the view of the newly created user to send to the FE
-	query2 := usersql.NewSelectUserViewByIDQuery(h.db, query.Returned.ID)
+	query2 := usersql.NewSelectUserViewByIDQuery(h.db)
+	query2.Where.ID = query.Returning.ID
 	if err := query2.Run(c); err != nil {
-		c.Error(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": "failed to fetch the newly created user"})
+		app.AbortWithErrorResponse(c, app.ErrServerError, err)
 		return
 	}
 

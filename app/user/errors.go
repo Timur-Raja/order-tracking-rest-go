@@ -1,7 +1,12 @@
 package user
 
-import "errors"
+import (
+	"net/http"
+
+	"github.com/timur-raja/order-tracking-rest-go/app"
+)
 
 var (
-	ErrMissingParams = errors.New("body parameters are required")
+	ErrUserNotFound       = app.NewAPIError(http.StatusNotFound, "user not found")
+	ErrInvalidCredentials = app.NewAPIError(http.StatusBadRequest, "invalid credentials")
 )

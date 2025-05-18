@@ -11,3 +11,9 @@ type User struct {
 	UpdatedAt time.Time  `db:"updated_at"`
 	DeletedAt *time.Time `db:"deleted_at"`
 }
+
+type Session struct {
+	Token     string    `db:"token"`
+	UserID    int       `db:"user_id"`
+	CreatedAt time.Time `db:"created_at"`
+}

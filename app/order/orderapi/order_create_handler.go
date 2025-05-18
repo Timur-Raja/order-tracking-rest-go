@@ -1,19 +1,184 @@
 package orderapi
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/timur-raja/order-tracking-rest-go/app"
+	"github.com/timur-raja/order-tracking-rest-go/app/order"
+	"github.com/timur-raja/order-tracking-rest-go/app/order/ordersql"
+	"github.com/timur-raja/order-tracking-rest-go/app/product"
+	"github.com/timur-raja/order-tracking-rest-go/app/product/prodsql"
 )
 
 type orderCreateHandler struct {
 	db *pgxpool.Pool
+
+	// req
+	userID int
+	params *order.OrderCreateParams
+
+	// helpers
+	itemsMap map[int]int
+	prodIDs  []int
+	products []*product.Product
+
+	// insert
+	items []*order.OrderItem
 }
 
 func OrderCreateHandler(db *pgxpool.Pool) gin.HandlerFunc {
-	h := &orderCreateHandler{db: db}
+	h := &orderCreateHandler{
+		db:     db,
+		params: new(order.OrderCreateParams),
+	}
 	return h.Exec
 }
 
 func (h *orderCreateHandler) Exec(c *gin.Context) {
+	// setup the struct
+	if err := h.Prepare(c); err != nil {
+		app.AbortWithErrorResponse(c, app.ErrFailedToLoadParams, err)
+		return
+	}
+
+	// load the product list from the database and lock for update to avoid cocurrency issues
+	// this is needed because we need to update the product stock
+	tx, err := h.db.BeginTx(c, pgx.TxOptions{})
+	query := prodsql.NewSelectProductListByIDsForUpdateQuery(h.db)
+	query.Where.IDs = h.prodIDs
+	if err := query.Run(c); err != nil {
+		tx.Rollback(c)
+		app.AbortWithErrorResponse(c, app.ErrServerError, err)
+		return
+	}
+	h.products = query.Products
+
+	// check if all products are valid
+	if err := h.ValidateAndCreateItems(); err != nil {
+		tx.Rollback(c)
+		app.AbortWithErrorResponse(c, product.ErrProductsNotFound, err)
+		return
+	}
+
+	// insert order items and orders as a transaction
+	if err != nil {
+		tx.Rollback(c)
+		app.AbortWithErrorResponse(c, app.ErrServerError, err)
+		return
+	}
+
+	query2 := ordersql.NewInsertOrderQuery(tx)
+	query2.Values.UserID = h.userID
+	query2.Values.CreatedAt = time.Now()
+	query2.Values.UpdatedAt = time.Now()
+	query2.Values.Status = order.StatusCreated.String()
+	if err := query2.Run(c); err != nil {
+		tx.Rollback(c)
+		app.AbortWithErrorResponse(c, app.ErrServerError, err)
+		return
+	}
+
+	orderID := query2.Returning.ID
+
+	// update the product stock
+	for _, item := range h.products { //todo improvement: run single dyanmically generated query based on the product ids to avoid n+1 problem
+		if quantity, ok := h.itemsMap[item.ID]; ok {
+			query := prodsql.NewUpdateProductStockQuery(tx)
+			query.Values.ID = item.ID
+			query.Values.Stock = item.Stock - quantity
+			if err := query.Run(c); err != nil {
+				tx.Rollback(c)
+				app.AbortWithErrorResponse(c, app.ErrServerError, err)
+				return
+			}
+		} else {
+			tx.Rollback(c)
+			app.AbortWithErrorResponse(c, product.ErrProductsNotFound, nil)
+			return
+		}
+	}
+
+	for _, item := range h.items {
+		item.OrderID = orderID
+	}
+
+	query3 := ordersql.NewInsertOrderItemsListQuery(tx)
+	query3.Values.Items = h.items
+	if err := query3.Run(c); err != nil {
+		tx.Rollback(c)
+		app.AbortWithErrorResponse(c, app.ErrServerError, err)
+		return
+	}
+	if err := tx.Commit(c); err != nil {
+		app.AbortWithErrorResponse(c, app.ErrServerError, err)
+		return
+	}
+
+	// return the order
+	query4 := ordersql.NewSelectOrderViewByIDQuery(h.db)
+	query4.Where.ID = orderID
+	if err := query4.Run(c); err != nil {
+		app.AbortWithErrorResponse(c, app.ErrServerError, err)
+		return
+	}
+
+	// fetch the items related to the order
+	query5 := ordersql.NewSelectOrderItemViewListByOrderIDQuery(h.db)
+	query5.Where.OrderID = orderID
+	if err := query5.Run(c); err != nil {
+		app.AbortWithErrorResponse(c, app.ErrServerError, err)
+		return
+	}
+
+	query4.OrderView.OrderItems = query5.Items
+	for _, item := range query5.Items {
+		query4.OrderView.TotalPrice += item.ProductPrice
+	}
+	c.JSON(200, query4.OrderView)
+
 	return
+}
+
+////////////////////////////////////////////////////////////
+// utils
+
+// load info and initialize helpers
+func (h *orderCreateHandler) Prepare(c *gin.Context) error {
+	// get the user id from the context
+	id, ok := c.Get("user_id")
+	if !ok {
+		app.AbortWithErrorResponse(c, app.ErrAuthenticationRequired, nil)
+		return app.ErrAuthenticationRequired.Err
+	}
+	h.userID = id.(int)
+
+	// load the order params from the request body
+	if err := c.ShouldBindJSON(h.params); err != nil {
+		return app.ErrFailedToLoadParams.Err
+	}
+
+	for _, orderItem := range h.params.OrderItems {
+		h.itemsMap[orderItem.ProductID] = orderItem.Quantity
+		h.prodIDs = append(h.prodIDs, orderItem.ProductID)
+	}
+	return nil
+}
+
+func (h *orderCreateHandler) ValidateAndCreateItems() error {
+	for _, item := range h.products {
+		if quantity, ok := h.itemsMap[item.ID]; !ok {
+			return product.ErrProductsNotFound.Err
+		} else {
+			orderItem := &order.OrderItem{
+				ProductID: item.ID,
+				Quantity:  quantity,
+				Price:     item.Price * float32(quantity),
+			}
+			h.items = append(h.items, orderItem)
+		}
+	}
+	return nil
 }
