@@ -11,6 +11,7 @@ import (
 type Config struct {
 	WebServer WebServerConfig
 	DB        DBConfig
+	TestDB    DBConfig
 }
 
 type WebServerConfig struct {
@@ -19,11 +20,7 @@ type WebServerConfig struct {
 }
 
 type DBConfig struct {
-	Host     string
-	Port     string
-	Password string
-	Name     string
-	Username string
+	DSN string
 }
 
 func (c *Config) LoadConfig() error {
@@ -33,11 +30,8 @@ func (c *Config) LoadConfig() error {
 	}
 
 	var envMap = map[string]*string{
-		"DB_HOST":     &c.DB.Host,
-		"DB_PORT":     &c.DB.Port,
-		"DB_PASSWORD": &c.DB.Password,
-		"DB_NAME":     &c.DB.Name,
-		"DB_USERNAME": &c.DB.Username,
+		"DB_DSN":      &c.DB.DSN,
+		"TEST_DB_DSN": &c.TestDB.DSN,
 		"APP_PORT":    &c.WebServer.Port,
 		"APP_HOST":    &c.WebServer.Host,
 	}

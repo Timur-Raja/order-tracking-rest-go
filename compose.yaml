@@ -10,19 +10,25 @@ services:
       - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d order_tracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:9.0.1
-    container_name: elasticsearch
+  # test db
+  postgres_test_init:
+    image: postgres:17
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-    ports:
-      - "9200:9200"
-      - "9300:9300"
-    volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
+      PGHOST: postgres
+      PGUSER: admin
+      PGPASSWORD: admin
+      PGDATABASE: order_tracker
+    command: >
+      psql -c "CREATE DATABASE order_tracker_test;"
 
 volumes:
   postgres_data:
-  elasticsearch_data:

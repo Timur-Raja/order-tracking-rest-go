@@ -48,7 +48,10 @@ type selectSessionByTokenQuery struct {
 }
 
 func NewSelectSessionByTokenQuery(conn db.PGExecer) *selectSessionByTokenQuery {
-	return &selectSessionByTokenQuery{BaseQuery: db.BaseQuery{DBConn: conn}}
+	return &selectSessionByTokenQuery{
+		BaseQuery: db.BaseQuery{DBConn: conn},
+		Session:   &user.Session{},
+	}
 }
 
 func (q *selectSessionByTokenQuery) Run(ctx context.Context) error {

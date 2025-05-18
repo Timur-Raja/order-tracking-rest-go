@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
@@ -11,13 +10,7 @@ import (
 )
 
 func Init(cfg *config.Config) (*pgxpool.Pool, error) {
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
-		cfg.DB.Username,
-		cfg.DB.Password,
-		cfg.DB.Host,
-		cfg.DB.Port,
-		cfg.DB.Name,
-	)
+	dsn := cfg.DB.DSN
 	return pgxpool.Connect(context.Background(), dsn)
 }
 

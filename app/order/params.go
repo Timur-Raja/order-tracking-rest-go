@@ -1,7 +1,7 @@
 package order
 
 type OrderCreateParams struct {
-	OrderItems []OrderItemCreateParams
+	OrderItems []OrderItemCreateParams `json:"orderItems"`
 }
 
 type OrderItemCreateParams struct {

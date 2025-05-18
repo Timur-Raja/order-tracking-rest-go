@@ -30,11 +30,17 @@ type orderCreateHandler struct {
 }
 
 func OrderCreateHandler(db *pgxpool.Pool) gin.HandlerFunc {
-	h := &orderCreateHandler{
-		db:     db,
-		params: new(order.OrderCreateParams),
+	return func(c *gin.Context) {
+		h := &orderCreateHandler{
+			db:       db,
+			params:   &order.OrderCreateParams{},
+			itemsMap: make(map[int]int),
+			prodIDs:  []int{},
+			products: []*product.Product{},
+			items:    []*order.OrderItem{},
+		}
+		h.Exec(c)
 	}
-	return h.Exec
 }
 
 func (h *orderCreateHandler) Exec(c *gin.Context) {
@@ -46,7 +52,13 @@ func (h *orderCreateHandler) Exec(c *gin.Context) {
 
 	// load the product list from the database and lock for update to avoid cocurrency issues
 	// this is needed because we need to update the product stock
+
+	// start a transaction
 	tx, err := h.db.BeginTx(c, pgx.TxOptions{})
+	if err != nil {
+		app.AbortWithErrorResponse(c, app.ErrServerError, err)
+		return
+	}
 	query := prodsql.NewSelectProductListByIDsForUpdateQuery(h.db)
 	query.Where.IDs = h.prodIDs
 	if err := query.Run(c); err != nil {
@@ -63,13 +75,7 @@ func (h *orderCreateHandler) Exec(c *gin.Context) {
 		return
 	}
 
-	// insert order items and orders as a transaction
-	if err != nil {
-		tx.Rollback(c)
-		app.AbortWithErrorResponse(c, app.ErrServerError, err)
-		return
-	}
-
+	// insert order items and orders as part of the transaction
 	query2 := ordersql.NewInsertOrderQuery(tx)
 	query2.Values.UserID = h.userID
 	query2.Values.CreatedAt = time.Now()
@@ -135,7 +141,7 @@ func (h *orderCreateHandler) Exec(c *gin.Context) {
 
 	query4.OrderView.OrderItems = query5.Items
 	for _, item := range query5.Items {
-		query4.OrderView.TotalPrice += item.ProductPrice
+		query4.OrderView.TotalPrice += item.ItemsPrice
 	}
 	c.JSON(200, query4.OrderView)
 
@@ -157,7 +163,7 @@ func (h *orderCreateHandler) Prepare(c *gin.Context) error {
 
 	// load the order params from the request body
 	if err := c.ShouldBindJSON(h.params); err != nil {
-		return app.ErrFailedToLoadParams.Err
+		return err
 	}
 
 	for _, orderItem := range h.params.OrderItems {

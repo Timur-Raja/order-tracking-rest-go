@@ -32,9 +32,9 @@ CREATE VIEW users_view AS
             oi.order_id,
             oi.product_id,
             oi.quantity AS ordered_quantity,
+            oi.price AS items_price,
             p.price AS product_price,
             p.name AS product_name,
-            p.stock AS remaining_stock,
+            p.stock AS remaining_product_stock
         FROM order_items oi
-        LEFT JOIN products p ON oi.product_id = p.id
-        WHERE oi.deleted_at IS NULL;
+        LEFT JOIN products p ON oi.product_id = p.id;

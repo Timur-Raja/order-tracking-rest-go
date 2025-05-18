@@ -27,7 +27,7 @@ func NewInsertOrderQuery(conn db.PGExecer) *insertOrderQuery {
 func (q *insertOrderQuery) Run(ctx context.Context) error {
 	query := `INSERT INTO orders (user_id, status, created_at, updated_at) 
 	VALUES($1, $2, $3, $4)
-	RETURNING token;`
+	RETURNING id;`
 
 	if err := pgxscan.Get(ctx, q.DBConn, &q.Returning.ID, query,
 		q.Values.UserID,
@@ -83,7 +83,7 @@ func (q *selectOrderByIDQuery) Run(ctx context.Context) error {
         FROM orders
         WHERE id = $1`
 
-	if err := pgxscan.Select(ctx, q.DBConn, q.Order, query,
+	if err := pgxscan.Get(ctx, q.DBConn, q.Order, query,
 		q.Where.ID); err != nil {
 		return err
 	}
@@ -126,15 +126,16 @@ type SelectOrderViewByIDQuery struct {
 func NewSelectOrderViewByIDQuery(conn db.PGExecer) *SelectOrderViewByIDQuery {
 	return &SelectOrderViewByIDQuery{
 		BaseQuery: db.BaseQuery{DBConn: conn},
+		OrderView: &order.OrderView{},
 	}
 }
 
 func (q *SelectOrderViewByIDQuery) Run(ctx context.Context) error {
 	query := `SELECT *
-        FROM orders
+        FROM orders_view
         WHERE id = $1`
 
-	if err := pgxscan.Select(ctx, q.DBConn, q.OrderView, query,
+	if err := pgxscan.Get(ctx, q.DBConn, q.OrderView, query,
 		q.Where.ID); err != nil {
 		return err
 	}
