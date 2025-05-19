@@ -20,8 +20,13 @@ type userSigninHandler struct {
 
 func UserSigninHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	// Initialize the handler struct with the db connection
-	h := &userSigninHandler{db: db}
-	return h.exec
+	return func(c *gin.Context) {
+		h := &userSigninHandler{
+			db:     db,
+			params: new(user.UserSigninParams),
+		}
+		h.exec(c)
+	}
 }
 
 func (h *userSigninHandler) exec(c *gin.Context) {

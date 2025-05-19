@@ -38,5 +38,13 @@ func (h *orderReadHandler) exec(c *gin.Context) {
 		return
 	}
 
+	query2 := ordersql.NewSelectOrderItemViewListByOrderIDQuery(h.db)
+	query2.Where.OrderID = id
+	if err := query2.Run(c); err != nil {
+		app.AbortWithErrorResponse(c, app.ErrServerError, err)
+		return
+	}
+	query.OrderView.OrderItems = query2.Items
+
 	c.JSON(200, query.OrderView)
 }

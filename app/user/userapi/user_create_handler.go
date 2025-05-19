@@ -19,11 +19,13 @@ type userCreateHandler struct {
 
 func UserCreateHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	// Initialize the handler struct with the db connection
-	h := &userCreateHandler{
-		db:     db,
-		params: new(user.UserCreateParams),
+	return func(c *gin.Context) {
+		h := &userCreateHandler{
+			db:     db,
+			params: new(user.UserCreateParams),
+		}
+		h.exec(c)
 	}
-	return h.exec
 }
 
 func (h *userCreateHandler) exec(c *gin.Context) {
