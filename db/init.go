@@ -6,12 +6,10 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/timur-raja/order-tracking-rest-go/config"
 )
 
-func Init(cfg *config.Config) (*pgxpool.Pool, error) {
-	dsn := cfg.DB.DSN
-	return pgxpool.Connect(context.Background(), dsn)
+func Init(DSN string) (*pgxpool.Pool, error) {
+	return pgxpool.Connect(context.Background(), DSN)
 }
 
 type PGExecer interface {

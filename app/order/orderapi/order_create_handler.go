@@ -143,7 +143,7 @@ func (h *orderCreateHandler) Exec(c *gin.Context) {
 	for _, item := range query5.Items {
 		query4.OrderView.TotalPrice += item.ItemsPrice
 	}
-	c.JSON(200, query4.OrderView)
+	c.JSON(201, query4.OrderView)
 
 	return
 }

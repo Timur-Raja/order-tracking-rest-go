@@ -1,6 +1,8 @@
 package api
 
 import (
+	"errors"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -39,7 +41,7 @@ func SessionAuth(db *pgxpool.Pool) gin.HandlerFunc {
 		query := usersql.NewSelectSessionByTokenQuery(db)
 		query.Where.Token = token
 		if err := query.Run(c); err != nil {
-			if err == pgx.ErrNoRows {
+			if errors.Is(err, pgx.ErrNoRows) {
 				app.AbortWithErrorResponse(c, app.ErrAuthenticationRequired, err)
 				return
 			}

@@ -37,4 +37,5 @@ var (
 	ErrMissingBodyParams      = NewAPIError(http.StatusBadRequest, "missing request body params")
 	ErrServerError            = NewAPIError(http.StatusInternalServerError, "internal server error")
 	ErrAuthenticationRequired = NewAPIError(http.StatusUnauthorized, "Authentication required")
+	ErrResourceNotFound       = NewAPIError(http.StatusNotFound, "resource not found")
 )

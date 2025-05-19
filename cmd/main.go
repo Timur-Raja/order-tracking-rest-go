@@ -23,7 +23,7 @@ func run() error {
 		return err
 	}
 
-	dbConn, err := db.Init(cfg)
+	dbConn, err := db.Init(cfg.DB.DSN)
 	if err != nil {
 		return err
 	}
