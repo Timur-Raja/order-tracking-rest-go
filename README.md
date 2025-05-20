@@ -2,8 +2,8 @@
 
 A RESTful service for managing users, products, and orders, built with Go using GIN framework and Postgres as DB and Elastic search for text search and filtering, containerized with Docker.
 
-## Improvements needed, not added due to time constraints 
-- more ecxhaustive testing suite, failing tests
+## Improvments needed, not added due to time constraints 
+- more exhaustive testing suite, failing tests
 - independent tests
 - avoid n+1 query problem in 2 handlers
 - some extra error checking in business logic
@@ -60,8 +60,6 @@ A RESTful service for managing users, products, and orders, built with Go using 
    ```bash
    git clone https://github.com/timur-raja/order-tracking-rest-go.git
    cd order-tracking-rest-go
-   ```
-
    ```
 2. Start PostgreSQL and initialize the test database:
 
