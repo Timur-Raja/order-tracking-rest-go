@@ -1,6 +1,15 @@
 # Order Tracking REST API
 
-A RESTful service for managing users, products, and orders, built with Go using GIN framework and Postgres as DB, containerized with Docker.
+A RESTful service for managing users, products, and orders, built with Go using GIN framework and Postgres as DB and Elastic search for text search and filetering, containerized with Docker.
+
+## Improvments needed, not added due to time constraints 
+- more ecxhaustive testing suite, failing tests
+- independent tests
+- avoid n+1 query problem in 2 handlers
+- some extra error checking in business logic
+- signout handler
+- product related endpoints
+- general more throught out code architecture improvements
 
 ## Project Structure
 
@@ -20,6 +29,8 @@ A RESTful service for managing users, products, and orders, built with Go using 
 │   ├── migrate.go         # func to run migrations (golang-migrate) used to run them in test db
 │   ├── schema.sql         # Full SQL schema
 │   └── migrations/        # Up/down migration files
+├── es/
+│   └── utils.go          # util function to populate elastic search indexes
 ├── app/
 │   ├── user/              # User business logic and SQL queries
 │   ├── order/             # Order business logic and SQL queries
@@ -36,10 +47,12 @@ A RESTful service for managing users, products, and orders, built with Go using 
 * User registration and authentication (session-based via cookies)
 * Product listing and management
 * Order CRUD operations (create, read, update, delete)
+* Order full text search and date filtering through Elasticsearch
 * Robust error handling and logging middleware
 * Database migrations powered by `golang-migrate`
 * Docker Compose for spinning up development and test databases
 * integration test suite using `httptest`
+
 ## Setup
 
 1. Clone the repository:
@@ -84,10 +97,11 @@ For prod can just run:
 
 Integration and endpoint tests are located in the `testing/` directory. They:
 
-1. Run migrations against `TEST_DB_DSN`
-2. Spin up an `httptest` server
-3. Execute endpoints sequentially and do a simple response check
-4. Return the DB to the original state (only migrations applied)
+1. Run migrations against a test postgres db
+2. connect to a test Elasticsearch service
+3. Spin up an `httptest` server
+4. Execute endpoints sequentially and do a simple response check
+5. Return the DB to the original state (only migrations applied)
 
 To run tests:
 
@@ -105,7 +119,7 @@ go test ./testing -v
 ### Protected Endpoints (require `session_token` cookie)
 
 * `POST /orders` — Create a new order
-* `GET /orders` — List your orders //todo
+* `GET /orders` — List your orders # includes Elasticsearch powered text search and date filtering
 * `GET /orders/:order_id` — Retrieve a specific order
-* `PATCH /orders/:order_id` — Update an existing order //todo
-* `DELETE /orders/:order_id` — Delete an order //todo.
+* `PATCH /orders/:order_id` — Update an existing order # includes editing and cancellation of orders
+

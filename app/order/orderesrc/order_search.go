@@ -11,6 +11,8 @@ import (
 	"github.com/timur-raja/order-tracking-rest-go/es"
 )
 
+// -esrc suffix for elasticsearch, files contain elasticsearch related code
+
 type orderIndexer struct {
 	Client    *elastic.Client
 	IndexName string
