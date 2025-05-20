@@ -20,6 +20,7 @@ CREATE TABLE orders (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id INT NOT NULL,
     Status VARCHAR(20) NOT NULL,
+    shipping_address VARCHAR(255) NOT NULL, -- for simplicity this is just a string, instead of a fkey to an address table
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT  CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP,
@@ -61,3 +62,9 @@ VALUES
     ('Charger', 25, 200),
     ('Monitor', 200, 40),
     ('Headphones', 100, 60);
+
+-- seeding of users - for testing purposes
+ INSERT INTO users (name, email, password) VALUES
+    ('John Doe','john.doe@example.com','hashed_password_here');
+ 	 INSERT INTO user_sessions(token, user_id) VALUES
+    ('test123', (SELECT id FROM users WHERE email='john.doe@example.com'));

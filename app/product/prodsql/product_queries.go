@@ -73,8 +73,10 @@ func (q *selectProductListByIDsForUpdateQuery) Run(ctx context.Context) error {
 type UpdateProductStockByIDQuery struct {
 	db.BaseQuery
 	Values struct {
-		ID    int
 		Stock int
+	}
+	Where struct {
+		ID int
 	}
 }
 
@@ -90,6 +92,6 @@ func (q *UpdateProductStockByIDQuery) Run(ctx context.Context) error {
         SET stock = $1
         WHERE id = $2
     `
-	_, err := q.DBConn.Exec(ctx, query, q.Values.Stock, q.Values.ID)
+	_, err := q.DBConn.Exec(ctx, query, q.Values.Stock, q.Where.ID)
 	return err
 }

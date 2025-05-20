@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/olivere/elastic/v7"
 	"github.com/timur-raja/order-tracking-rest-go/api"
 	"github.com/timur-raja/order-tracking-rest-go/config"
 	"github.com/timur-raja/order-tracking-rest-go/db"
@@ -29,10 +30,19 @@ func run() error {
 	}
 	defer dbConn.Close()
 
+	esClient, err := elastic.NewClient(
+		elastic.SetURL(cfg.ES.URL),
+		elastic.SetSniff(false),
+		elastic.SetHealthcheck(false),
+	)
+	if err != nil {
+		return fmt.Errorf("es init: %w", err)
+	}
+
 	server := gin.New()
 	server.Use(gin.Recovery(), api.ErrorLogger())
 
-	r := api.NewRouter(dbConn)
+	r := api.NewRouter(dbConn, esClient)
 	r.Setup(server)
 
 	addr := fmt.Sprintf("%s:%s", cfg.WebServer.Host, cfg.WebServer.Port)

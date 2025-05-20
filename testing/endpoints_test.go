@@ -1,13 +1,17 @@
 package testing
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
+
+// todo improbement: make tests independent of each other
 
 type endpointTest struct {
 	name         string
@@ -18,23 +22,26 @@ type endpointTest struct {
 	wantContains string
 }
 
+var today = time.Now().Format("2006-01-02")
+
 var tests = []endpointTest{
 	{
 		name:   "Make an Order",
 		method: http.MethodPost,
 		path:   "/orders",
 		body: `{
- 						 "orderItems": [
-    									{
-										"productID": 1,
-										"quantity": 3
-										},
-										{
-										"productID": 3,
-										"quantity": 1
-										}
-									]
-									}`,
+		        "shippingAddress": "test address 123",
+				"orderItems": [
+				{
+				"productID": 1,
+				"quantity": 3
+				},
+				{
+				"productID": 3,
+				"quantity": 1
+				}
+				 ]
+		}`,
 		wantStatus:   201,
 		wantContains: `"status":"created"`,
 	},
@@ -46,10 +53,44 @@ var tests = []endpointTest{
 		wantContains: `"id":1,"userID":1,"status":"created"`,
 	},
 	{
+		name:         "Search orders by text",
+		method:       http.MethodGet,
+		path:         "/orders?q=test",
+		wantStatus:   200,
+		wantContains: `"shippingAddress":"test address 123"`,
+	},
+	{
+		name:         "Filter orders by date",
+		method:       http.MethodGet,
+		path:         fmt.Sprintf("/orders?start_date=%s&end_date=%s", today, today),
+		wantStatus:   200,
+		wantContains: `"shippingAddress":"test address 123"`,
+	},
+	{
+		name:   "update order shipping address",
+		method: http.MethodPatch,
+		path:   "/orders/1",
+		body: `{
+				"shippingAddress": "New address 123"
+				}`,
+		wantStatus:   200,
+		wantContains: `"shippingAddress":"New address 123"`,
+	},
+	{
+		name:   "cancel order",
+		method: http.MethodPatch,
+		path:   "/orders/1",
+		body: `{
+				"status": "cancelled"
+				}`,
+		wantStatus:   200,
+		wantContains: `"status":"cancelled"`,
+	},
+	{
 		name:         "Create user",
 		method:       http.MethodPost,
 		path:         "/signup",
-		body:         `{"email":"email@example.com","name":"John Doe", "password":"password"}`,
+		body:         `{"email":"email@example2.com","name":"John Doe", "password":"password"}`,
 		wantStatus:   201,
 		wantContains: `"id":2`, // second user after the seeded one
 	},
@@ -57,7 +98,7 @@ var tests = []endpointTest{
 		name:         "Sign in with user",
 		method:       http.MethodPost,
 		path:         "/signin",
-		body:         `{"email":"email@example.com","password":"password"}`,
+		body:         `{"email":"email@example2.com","password":"password"}`,
 		wantStatus:   201,
 		wantContains: `"id":2,"`,
 	},

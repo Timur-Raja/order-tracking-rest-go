@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   postgres:
     image: postgres:17
@@ -16,7 +18,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # test db
+  # test db init
   postgres_test_init:
     image: postgres:17
     depends_on:
@@ -30,5 +32,42 @@ services:
     command: >
       psql -c "CREATE DATABASE order_tracker_test;"
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.9.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health?wait_for_status=yellow | grep -E '\"status\":\"(yellow|green)\"'"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # test ES
+  elasticsearch_test:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.9.0
+    container_name: elasticsearch_test
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms256m -Xmx256m
+    ports:
+      - "9201:9200"
+    volumes:
+      - elasticsearch_test_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health?wait_for_status=yellow | grep -E '\"status\":\"(yellow|green)\"'"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:
+  elasticsearch_data:
+  elasticsearch_test_data:

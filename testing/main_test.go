@@ -1,7 +1,6 @@
 package testing
 
 import (
-	"context"
 	"database/sql"
 	"log"
 	"net/http/httptest"
@@ -10,77 +9,74 @@ import (
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/olivere/elastic/v7"
 	"github.com/timur-raja/order-tracking-rest-go/api"
 	"github.com/timur-raja/order-tracking-rest-go/config"
 	"github.com/timur-raja/order-tracking-rest-go/db"
 )
 
-//TODO: needs imprpovements, very rudimentary implementation due to time constraints
-
 var baseURL string
 
 func TestMain(m *testing.M) {
-	// load configs
+	// point tests at the test‐only ES on 9201
+	os.Setenv("ES_URL", "http://localhost:9201")
+
+	// load config (now cfg.ES.URL == "http://localhost:9201")
 	if err := os.Chdir(".."); err != nil {
-		log.Fatalf("could not chdir to project root: %v", err)
+		log.Fatalf("cd: %v", err)
 	}
 	cfg := new(config.Config)
 	if err := cfg.LoadConfig(); err != nil {
-		log.Fatalf("loading envs: %v", err)
+		log.Fatalf("load config: %v", err)
 	}
 
-	// run migrations on test DB
+	// migrate & connect Postgres
 	sqlDB, err := sql.Open("pgx", cfg.TestDB.DSN)
 	if err != nil {
-		log.Fatalf("opening migration DB: %v", err)
-	}
-	if err := sqlDB.Ping(); err != nil {
-		log.Fatalf("pinging migration DB: %v", err)
+		log.Fatalf("open test db: %v", err)
 	}
 	if err := db.MigrateUp(sqlDB, "db/migrations"); err != nil {
-		log.Fatalf("running migrations: %v", err)
+		log.Fatalf("migrate up: %v", err)
 	}
+	defer func() {
+		db.MigrateDrop(sqlDB, "db/migrations")
+		sqlDB.Close()
+	}()
 
-	// seed user and session
-	if _, err := sqlDB.Exec(`
- 	 INSERT INTO users (name, email, password) VALUES
-    ('John Doe','john.doe@example.com','hashed_password_here');
- 	 INSERT INTO user_sessions(token, user_id) VALUES
-    ('test123', (SELECT id FROM users WHERE email='john.doe@example.com'));
-`); err != nil {
-		log.Fatalf("seeding test user/session failed: %v", err)
-	}
-
-	sqlDB.Close()
-
-	dbConn, err := db.Init(cfg.TestDB.DSN)
+	pgPool, err := db.Init(cfg.TestDB.DSN)
 	if err != nil {
-		log.Fatalf("connecting to test db: %v", err)
+		log.Fatalf("init pg pool: %v", err)
 	}
-	defer dbConn.Close()
+	defer pgPool.Close()
 
-	// setup test gin server
+	// init ES test service
+	esClient, err := elastic.NewClient(
+		elastic.SetURL(cfg.TestES.URL),
+		elastic.SetSniff(false),
+		elastic.SetHealthcheck(false),
+	)
+	if err != nil {
+		log.Fatalf("init ES client: %v", err)
+	}
+
+	// start up your Gin router
+	gin.SetMode(gin.TestMode)
 	server := gin.New()
 	server.Use(gin.Recovery(), api.ErrorLogger())
 
-	r := api.NewRouter(dbConn)
+	// pass both pg and es into your router
+	r := api.NewRouter(pgPool, esClient)
 	r.Setup(server)
 
 	ts := httptest.NewServer(server)
 	baseURL = ts.URL
 	defer ts.Close()
 
-	// run tests
 	code := m.Run()
-
-	ctx := context.Background()
-	// clean affected table for subequent tests
-	if _, err := dbConn.Exec(ctx, `
-       TRUNCATE order_items, orders, user_sessions, users
-      RESTART IDENTITY CASCADE
-   `); err != nil {
-		log.Fatalf("cleanup – truncate failed: %v", err)
+	//clean testing db for next run
+	if err := db.MigrateDrop(sqlDB, "db/migrations"); err != nil {
+		log.Fatalf("cleaning dn migrations: %v", err)
 	}
-
+	sqlDB.Close()
 	os.Exit(code)
 }

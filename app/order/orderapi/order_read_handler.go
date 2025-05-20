@@ -1,6 +1,7 @@
 package orderapi
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -30,7 +31,7 @@ func (h *orderReadHandler) exec(c *gin.Context) {
 	query := ordersql.NewSelectOrderViewByIDQuery(h.db)
 	query.Where.ID = id
 	if err := query.Run(c); err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			app.AbortWithErrorResponse(c, app.ErrResourceNotFound, err)
 		} else {
 			app.AbortWithErrorResponse(c, app.ErrServerError, err)

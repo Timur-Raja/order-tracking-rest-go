@@ -3,16 +3,17 @@ package order
 import "time"
 
 type OrderView struct {
-	ID         int              `json:"id" db:"id"`
-	UserID     int              `json:"userID" db:"user_id"`
-	Status     string           `json:"status" db:"status"`
-	UserName   string           `json:"userName" db:"user_name"`
-	UserEmail  string           `json:"userEmail" db:"user_email"`
-	CreatedAt  time.Time        `json:"createdAt" db:"created_at"`
-	UpdatedAt  time.Time        `json:"updatedAt" db:"updated_at"`
-	DeletedAt  *time.Time       `json:"deletedAt" db:"deleted_at"`
-	TotalPrice float32          `json:"totalPrice"`
-	OrderItems []*OrderItemView `json:"orderItems"`
+	ID              int              `json:"id" db:"id"`
+	UserID          int              `json:"userID" db:"user_id"`
+	Status          string           `json:"status" db:"status"`
+	ShippingAddress string           `json:"shippingAddress" db:"shipping_address"`
+	UserName        string           `json:"userName" db:"user_name"`
+	UserEmail       string           `json:"userEmail" db:"user_email"`
+	CreatedAt       time.Time        `json:"createdAt" db:"created_at"`
+	UpdatedAt       time.Time        `json:"updatedAt" db:"updated_at"`
+	DeletedAt       *time.Time       `json:"deletedAt" db:"deleted_at"`
+	TotalPrice      float32          `json:"totalPrice"`
+	OrderItems      []*OrderItemView `json:"orderItems"`
 }
 
 type OrderItemView struct {

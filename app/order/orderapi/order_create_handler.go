@@ -6,8 +6,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/olivere/elastic/v7"
 	"github.com/timur-raja/order-tracking-rest-go/app"
 	"github.com/timur-raja/order-tracking-rest-go/app/order"
+	"github.com/timur-raja/order-tracking-rest-go/app/order/orderesrc"
 	"github.com/timur-raja/order-tracking-rest-go/app/order/ordersql"
 	"github.com/timur-raja/order-tracking-rest-go/app/product"
 	"github.com/timur-raja/order-tracking-rest-go/app/product/prodsql"
@@ -15,6 +17,7 @@ import (
 
 type orderCreateHandler struct {
 	db *pgxpool.Pool
+	es *elastic.Client
 
 	// req
 	userID int
@@ -29,10 +32,11 @@ type orderCreateHandler struct {
 	items []*order.OrderItem
 }
 
-func OrderCreateHandler(db *pgxpool.Pool) gin.HandlerFunc {
+func OrderCreateHandler(db *pgxpool.Pool, es *elastic.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		h := &orderCreateHandler{
 			db:       db,
+			es:       es,
 			params:   &order.OrderCreateParams{},
 			itemsMap: make(map[int]int),
 			prodIDs:  []int{},
@@ -51,7 +55,7 @@ func (h *orderCreateHandler) Exec(c *gin.Context) {
 	}
 
 	// load the product list from the database and lock for update to avoid cocurrency issues
-	// this is needed because we need to update the product stock
+	// this is needed because we need to update the product stock and avoid inconsistent data
 
 	// start a transaction
 	tx, err := h.db.BeginTx(c, pgx.TxOptions{})
@@ -78,9 +82,11 @@ func (h *orderCreateHandler) Exec(c *gin.Context) {
 	// insert order items and orders as part of the transaction
 	query2 := ordersql.NewInsertOrderQuery(tx)
 	query2.Values.UserID = h.userID
+	query2.Values.Status = order.StatusCreated.String()
+	query2.Values.ShippingAddress = h.params.ShippingAddress
 	query2.Values.CreatedAt = time.Now()
 	query2.Values.UpdatedAt = time.Now()
-	query2.Values.Status = order.StatusCreated.String()
+
 	if err := query2.Run(c); err != nil {
 		tx.Rollback(c)
 		app.AbortWithErrorResponse(c, app.ErrServerError, err)
@@ -93,7 +99,7 @@ func (h *orderCreateHandler) Exec(c *gin.Context) {
 	for _, item := range h.products { //todo improvement: run single dyanmically generated query based on the product ids to avoid n+1 problem
 		if quantity, ok := h.itemsMap[item.ID]; ok {
 			query := prodsql.NewUpdateProductStockQuery(tx)
-			query.Values.ID = item.ID
+			query.Where.ID = item.ID
 			query.Values.Stock = item.Stock - quantity
 			if err := query.Run(c); err != nil {
 				tx.Rollback(c)
@@ -111,6 +117,7 @@ func (h *orderCreateHandler) Exec(c *gin.Context) {
 		item.OrderID = orderID
 	}
 
+	// bulk insert order items
 	query3 := ordersql.NewInsertOrderItemsListQuery(tx)
 	query3.Values.Items = h.items
 	if err := query3.Run(c); err != nil {
@@ -143,9 +150,15 @@ func (h *orderCreateHandler) Exec(c *gin.Context) {
 	for _, item := range query5.Items {
 		query4.OrderView.TotalPrice += item.ItemsPrice
 	}
-	c.JSON(201, query4.OrderView)
 
-	return
+	// index order in elasticsearch
+	indexer := orderesrc.NewOrderIndexer(h.es, "orders")
+	if err := indexer.Run(c, query4.OrderView); err != nil {
+		app.AbortWithErrorResponse(c, app.ErrServerError, err)
+		return
+	}
+
+	c.JSON(201, query4.OrderView)
 }
 
 ////////////////////////////////////////////////////////////

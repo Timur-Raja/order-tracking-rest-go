@@ -17,9 +17,6 @@ type PGExecer interface {
 	Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error)
 	QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row
 }
-type Query interface { // for mocking
-	Exec(ctx context.Context) error
-}
 
 type BaseQuery struct {
 	DBConn PGExecer

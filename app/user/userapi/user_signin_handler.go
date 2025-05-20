@@ -1,6 +1,7 @@
 package userapi
 
 import (
+	"errors"
 	"strings"
 	"time"
 
@@ -44,7 +45,7 @@ func (h *userSigninHandler) exec(c *gin.Context) {
 	query := usersql.NewSelectUserByEmailQuery(h.db)
 	query.Where.Email = email
 	if err := query.Run(c); err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			app.AbortWithErrorResponse(c, user.ErrUserNotFound, err)
 			return
 		}

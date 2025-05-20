@@ -15,6 +15,7 @@ CREATE VIEW users_view AS
             o.id,
             o.user_id,
             o.status,
+            o.shipping_address,
             u.name AS user_name,
             u.email AS user_email,
             o.created_at,

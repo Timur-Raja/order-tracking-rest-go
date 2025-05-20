@@ -25,13 +25,14 @@ func NewInsertOrderQuery(conn db.PGExecer) *insertOrderQuery {
 }
 
 func (q *insertOrderQuery) Run(ctx context.Context) error {
-	query := `INSERT INTO orders (user_id, status, created_at, updated_at) 
-	VALUES($1, $2, $3, $4)
+	query := `INSERT INTO orders (user_id, status, shipping_address, created_at, updated_at) 
+	VALUES($1, $2, $3, $4, $5)
 	RETURNING id;`
 
 	if err := pgxscan.Get(ctx, q.DBConn, &q.Returning.ID, query,
 		q.Values.UserID,
 		q.Values.Status,
+		q.Values.ShippingAddress,
 		q.Values.CreatedAt,
 		q.Values.UpdatedAt); err != nil {
 		return err
@@ -75,6 +76,7 @@ type selectOrderByIDQuery struct {
 func NewSelectOrderByIDQuery(conn db.PGExecer) *selectOrderByIDQuery {
 	return &selectOrderByIDQuery{
 		BaseQuery: db.BaseQuery{DBConn: conn},
+		Order:     &order.Order{},
 	}
 }
 
@@ -140,4 +142,39 @@ func (q *SelectOrderViewByIDQuery) Run(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+// ///////////////////////////////////////////////////////////////////
+type updateOrderQuery struct {
+	db.BaseQuery
+	Values struct {
+		*order.Order
+	}
+}
+
+func NewUpdateOrderQuery(conn db.PGExecer) *updateOrderQuery {
+	return &updateOrderQuery{
+		BaseQuery: db.BaseQuery{DBConn: conn},
+		Values:    struct{ *order.Order }{Order: &order.Order{}},
+	}
+}
+
+func (q *updateOrderQuery) Run(ctx context.Context) error {
+	query := `UPDATE orders
+		SET user_id = $1,
+			status = $2,
+			shipping_address = $3,
+			created_at = $4,
+			updated_at = $5
+		WHERE id = $6`
+
+	_, err := q.DBConn.Exec(ctx, query,
+		q.Values.UserID,
+		q.Values.Status,
+		q.Values.ShippingAddress,
+		q.Values.CreatedAt,
+		q.Values.UpdatedAt,
+		q.Values.ID,
+	)
+	return err
 }

@@ -27,3 +27,21 @@ func MigrateUp(db *sql.DB, migrationsDir string) error {
 	}
 	return nil
 }
+
+func MigrateDrop(db *sql.DB, migrationsDir string) error {
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	if err != nil {
+		return fmt.Errorf("could not create migrate driver: %w", err)
+	}
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://"+migrationsDir,
+		"postgres", driver,
+	)
+	if err != nil {
+		return fmt.Errorf("could not init migrate: %w", err)
+	}
+	if err := m.Down(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("could not run up migrations: %w", err)
+	}
+	return nil
+}

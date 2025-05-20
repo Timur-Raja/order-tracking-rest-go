@@ -12,6 +12,8 @@ type Config struct {
 	WebServer WebServerConfig
 	DB        DBConfig
 	TestDB    DBConfig
+	ES        ESConfig
+	TestES    ESConfig
 }
 
 type WebServerConfig struct {
@@ -23,6 +25,10 @@ type DBConfig struct {
 	DSN string
 }
 
+type ESConfig struct {
+	URL string
+}
+
 func (c *Config) LoadConfig() error {
 	var err error
 	if err = godotenv.Load(); err != nil {
@@ -32,6 +38,8 @@ func (c *Config) LoadConfig() error {
 	var envMap = map[string]*string{
 		"DB_DSN":      &c.DB.DSN,
 		"TEST_DB_DSN": &c.TestDB.DSN,
+		"ES_URL":      &c.ES.URL,
+		"TEST_ES_URL": &c.TestES.URL,
 		"APP_PORT":    &c.WebServer.Port,
 		"APP_HOST":    &c.WebServer.Host,
 	}

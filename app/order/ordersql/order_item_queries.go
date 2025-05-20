@@ -77,13 +77,13 @@ type selectOrderItemListByOrderIDQuery struct {
 		OrderID   int `db:"order_id"`
 		ProductID int `db:"product_id"`
 	}
-	Orders []*order.Order
+	Items []*order.OrderItem
 }
 
 func NewSelectOrderItemListByOrderIDQuery(conn db.PGExecer) *selectOrderItemListByOrderIDQuery {
 	return &selectOrderItemListByOrderIDQuery{
 		BaseQuery: db.BaseQuery{DBConn: conn},
-		Orders:    []*order.Order{},
+		Items:     []*order.OrderItem{},
 	}
 }
 
@@ -93,7 +93,7 @@ func (q *selectOrderItemListByOrderIDQuery) Run(ctx context.Context) error {
         WHERE order_id = $1
 		AND product_id = $2`
 
-	if err := pgxscan.Select(ctx, q.DBConn, q.Orders, query,
+	if err := pgxscan.Select(ctx, q.DBConn, &q.Items, query,
 		q.Where.OrderID,
 		q.Where.ProductID,
 	); err != nil {

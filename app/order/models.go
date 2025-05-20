@@ -5,12 +5,13 @@ import (
 )
 
 type Order struct {
-	ID        int        `db:"id"`
-	UserID    int        `db:"user_id"`
-	Status    string     `db:"status"`
-	CreatedAt time.Time  `db:"created_at"`
-	UpdatedAt time.Time  `db:"updated_at"`
-	DeletedAt *time.Time `db:"deleted_at"`
+	ID              int        `db:"id"`
+	UserID          int        `db:"user_id"`
+	Status          string     `db:"status"`
+	ShippingAddress string     `db:"shipping_address"`
+	CreatedAt       time.Time  `db:"created_at"`
+	UpdatedAt       time.Time  `db:"updated_at"`
+	DeletedAt       *time.Time `db:"deleted_at"`
 }
 
 type OrderItem struct {
