@@ -163,7 +163,7 @@ func (h *orderCreateHandler) Exec(c *gin.Context) {
 }
 
 ////////////////////////////////////////////////////////////
-// utils
+// helpers
 
 // load info and initialize helpers
 func (h *orderCreateHandler) Prepare(c *gin.Context) error {

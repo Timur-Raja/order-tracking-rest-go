@@ -6,10 +6,11 @@ A RESTful service for managing users, products, and orders, built with Go using 
 - more exhaustive testing suite, failing tests
 - independent tests
 - avoid n+1 query problem in 2 handlers
-- some extra error checking in business logic
-- signout handler
+- some extra validation and err checking in business logic
+- signout endpoint
 - product related endpoints
 - general more throught out code architecture improvements
+- sanitize text fields against xss
 
 ## Project Structure
 
