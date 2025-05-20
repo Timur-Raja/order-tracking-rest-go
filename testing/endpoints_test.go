@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// todo improbement: make tests independent of each other
+// todo improbement: make tests independent of each other and add failing tests
 
 type endpointTest struct {
 	name         string
