@@ -7,12 +7,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/gin-gonic/gin"
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/olivere/elastic/v7"
 	"github.com/timur-raja/order-tracking-rest-go/api"
 	"github.com/timur-raja/order-tracking-rest-go/config"
 	"github.com/timur-raja/order-tracking-rest-go/db"
+
+	"github.com/gin-gonic/gin"
+	"github.com/olivere/elastic/v7"
 )
 
 var baseURL string

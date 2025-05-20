@@ -1,12 +1,12 @@
 package api
 
 import (
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/olivere/elastic/v7"
 	"github.com/timur-raja/order-tracking-rest-go/app/order/orderapi"
 	"github.com/timur-raja/order-tracking-rest-go/app/user/userapi"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/olivere/elastic/v7"
 )
 
 // endpoints.go setsup the API endpoints for the application.

@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/olivere/elastic/v7"
 	"github.com/timur-raja/order-tracking-rest-go/app/order"
 	"github.com/timur-raja/order-tracking-rest-go/es"
+
+	"github.com/olivere/elastic/v7"
 )
 
 // -esrc suffix for elasticsearch, files contain elasticsearch related code

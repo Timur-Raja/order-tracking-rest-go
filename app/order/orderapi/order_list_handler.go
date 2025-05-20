@@ -3,11 +3,12 @@ package orderapi
 import (
 	"net/http"
 
+	"github.com/timur-raja/order-tracking-rest-go/app"
+	"github.com/timur-raja/order-tracking-rest-go/app/order/orderesrc"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/olivere/elastic/v7"
-	"github.com/timur-raja/order-tracking-rest-go/app"
-	"github.com/timur-raja/order-tracking-rest-go/app/order/orderesrc"
 )
 
 type orderListHandler struct {
