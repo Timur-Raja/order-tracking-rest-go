@@ -3,14 +3,12 @@
 A RESTful service for managing users, products, and orders, built with Go using GIN framework and Postgres as DB and Elastic search for text search and filtering, containerized with Docker.
 
 ## Improvments needed, not added due to time constraints 
-- more exhaustive testing suite, failing tests
-- independent tests
-- avoid n+1 query problem in 2 handlers
+- independent tests from each other
 - some extra validation and err checking in business logic
 - signout endpoint
 - product related endpoints
 - general more throught out code architecture improvements
-- sanitize text fields against xss
+- caching with redis
 
 ## Project Structure
 
@@ -32,7 +30,7 @@ A RESTful service for managing users, products, and orders, built with Go using 
 │   └── migrations/        # Up/down migration files
 ├── es/
 │   └── utils.go          # util function to populate elastic search indexes
-├── app/
+├── app/00000000000000
 │   ├── user/              # User business logic and SQL queries
 │   ├── order/             # Order business logic and SQL queries
 │   └── product/           # Product business logic and SQL queries
@@ -41,7 +39,7 @@ A RESTful service for managing users, products, and orders, built with Go using 
 │   └── endpoints_test.go  # Sequential endpoint tests
 ├── go.mod
 └── go.sum
-```
+```p'è00000000000
 
 ## Features
 

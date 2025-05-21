@@ -22,156 +22,77 @@ import (
 // and cancelling the order
 
 type orderUpdateHandler struct {
-	db      *pgxpool.Pool
-	es      *elastic.Client
-	params  *order.OrderUpdateParams
-	orderID int
-	Order   *order.Order
+	db        *pgxpool.Pool
+	es        *elastic.Client
+	params    *order.OrderUpdateParams
+	orderID   int
+	order     *order.Order
+	orderView *order.OrderView
 }
 
 func OrderUpdateHandler(db *pgxpool.Pool, es *elastic.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		h := &orderUpdateHandler{
-			db:     db,
-			es:     es,
-			params: &order.OrderUpdateParams{},
-			Order:  &order.Order{},
+			db:        db,
+			es:        es,
+			params:    &order.OrderUpdateParams{},
+			order:     &order.Order{},
+			orderView: &order.OrderView{},
 		}
 		h.Exec(c)
 	}
 }
 
 func (h *orderUpdateHandler) Exec(c *gin.Context) {
+	// prepare and check params
+	// load the order from the database
 	if err := h.prepare(c); err != nil {
 		app.AbortWithErrorResponse(c, app.ErrFailedToLoadParams, err)
 		return
 	}
 
-	if h.params.Status != nil && *h.params.Status == order.StatusCancelled.String() {
-		if h.Order.Status == order.StatusCancelled.String() {
-			c.JSON(http.StatusNoContent, nil) // no change
-			return
-		}
-		if err := h.cancelOrder(c); err != nil {
-			app.AbortWithErrorResponse(c, app.ErrServerError, err)
-			return
+	if h.params.Status != nil {
+		// status update handling
+		if *h.params.Status == order.StatusCancelled {
+			if h.order.Status == order.StatusCancelled.String() {
+				c.JSON(http.StatusNoContent, nil) // no change
+				return
+			}
+			if err := h.cancelOrder(c); err != nil { // allowed update
+				app.AbortWithErrorResponse(c, app.ErrServerError, err)
+				return
+			}
+		} else { // a valid enum is passed, but only cancelled can be set manually from this endpoint
+			app.AbortWithErrorResponse(c, order.ErrInvalidOrderStatusUpdate, order.ErrInvalidOrderStatusUpdate.Err)
 		}
 	} else if h.params.ShippingAddress != nil {
-		// shipping address error handling
+		// shipping address update handling
 		switch *h.params.ShippingAddress {
 		case "":
-			app.AbortWithErrorResponse(c, order.ErrShippingAddressRequired, nil)
+			app.AbortWithErrorResponse(c, order.ErrShippingAddressRequired, order.ErrShippingAddressRequired.Err)
 			return
-		case h.Order.ShippingAddress:
+		case h.order.ShippingAddress:
 			c.JSON(http.StatusNoContent, nil) // no change
 			return
 		default:
 			// update the order with the new shipping address
-			h.Order.ShippingAddress = *h.params.ShippingAddress
-			h.Order.UpdatedAt = time.Now()
+			h.order.ShippingAddress = *h.params.ShippingAddress
+			h.order.UpdatedAt = time.Now()
 			query := ordersql.NewUpdateOrderQuery(h.db)
-			query.Values.Order = h.Order
+			query.Values.Order = h.order
 			if err := query.Run(c); err != nil {
 				app.AbortWithErrorResponse(c, app.ErrServerError, err)
 				return
 			}
 		}
 	}
-	// fetch the order view with the updated shipping address
-	query := ordersql.NewSelectOrderViewByIDQuery(h.db)
-	query.Where.ID = h.orderID
-	if err := query.Run(c); err != nil {
-		app.AbortWithErrorResponse(c, app.ErrServerError, err)
-		return
-	}
-
-	// fetch the order items view to build the order
-	query2 := ordersql.NewSelectOrderItemViewListByOrderIDQuery(h.db)
-	query2.Where.OrderID = h.orderID
-	if err := query2.Run(c); err != nil {
-		app.AbortWithErrorResponse(c, app.ErrServerError, err)
-		return
-	}
-	query.OrderView.OrderItems = query2.Items
-	for _, item := range query2.Items {
-		query.OrderView.TotalPrice += item.ItemsPrice
-	}
-
-	// index the order in elasticsearch
-	indexer := orderesrc.NewOrderIndexer(h.es, "orders")
-	if err := indexer.Run(c, query.OrderView); err != nil {
-		app.AbortWithErrorResponse(c, app.ErrServerError, err)
-		return
-	}
-	c.JSON(http.StatusOK, query.OrderView)
+	// fetch order view to send as response
+	h.buildResponse(c)
+	c.JSON(http.StatusOK, h.orderView)
 }
 
-func (h *orderUpdateHandler) cancelOrder(c *gin.Context) error {
-	// fetch related order items
-	query := ordersql.NewSelectOrderItemListByOrderIDQuery(h.db)
-	query.Where.OrderID = h.orderID
-	if err := query.Run(c); err != nil {
-		app.AbortWithErrorResponse(c, app.ErrServerError, err)
-		return app.ErrServerError.Err
-	}
-
-	var prodIDs []int
-	prodQuantityMap := make(map[int]int)
-	for _, item := range query.Items {
-		prodIDs = append(prodIDs, item.ProductID)
-		prodQuantityMap[item.ProductID] = item.Quantity
-	}
-
-	// start a transaction to update the order status and return the stock to the products
-	tx, err := h.db.BeginTx(c, pgx.TxOptions{})
-	if err != nil {
-		app.AbortWithErrorResponse(c, app.ErrServerError, err)
-		return app.ErrServerError.Err
-	}
-
-	h.Order.Status = order.StatusCancelled.String()
-	h.Order.UpdatedAt = time.Now()
-
-	// update the order status
-	query2 := ordersql.NewUpdateOrderQuery(tx)
-	query2.Values.Order = h.Order
-	if err := query2.Run(c); err != nil {
-		tx.Rollback(c)
-		app.AbortWithErrorResponse(c, app.ErrServerError, err)
-		return app.ErrServerError.Err
-	}
-
-	// fetch the product list and lock for update to avoid concurrency issues
-	query3 := prodsql.NewSelectProductListByIDsForUpdateQuery(tx)
-	query3.Where.IDs = prodIDs
-	if err := query3.Run(c); err != nil {
-		tx.Rollback(c)
-		app.AbortWithErrorResponse(c, app.ErrServerError, err)
-		return app.ErrServerError.Err
-	}
-
-	// return the stock to the products
-	for _, item := range query3.Products {
-		item.Stock += prodQuantityMap[item.ID]
-		query4 := prodsql.NewUpdateProductStockQuery(tx)
-		query4.Values.Stock = item.Stock
-		query4.Where.ID = item.ID
-		if err := query4.Run(c); err != nil {
-			tx.Rollback(c)
-			app.AbortWithErrorResponse(c, app.ErrServerError, err)
-			return app.ErrServerError.Err
-		}
-	}
-
-	if err := tx.Commit(c); err != nil {
-		app.AbortWithErrorResponse(c, app.ErrServerError, err)
-		return app.ErrServerError.Err
-	}
-	return nil
-}
-
-/////////////////////////////////////////////////////////////////
-// utils
+//////////////////////////////////////////////////////////////////////////////////////
+// helper functions
 
 // load params and the requested order from the database
 func (h *orderUpdateHandler) prepare(c *gin.Context) error {
@@ -188,6 +109,8 @@ func (h *orderUpdateHandler) prepare(c *gin.Context) error {
 		return app.ErrFailedToLoadParams.Err
 	}
 
+	h.params.Sanitize()
+
 	// load order if it exists
 	query := ordersql.NewSelectOrderByIDQuery(h.db)
 	query.Where.ID = h.orderID
@@ -201,6 +124,98 @@ func (h *orderUpdateHandler) prepare(c *gin.Context) error {
 		}
 	}
 
-	h.Order = query.Order
+	h.order = query.Order
+	return nil
+}
+
+func (h *orderUpdateHandler) cancelOrder(c *gin.Context) error {
+	// fetch related order items
+	query := ordersql.NewSelectOrderItemListByOrderIDQuery(h.db)
+	query.Where.OrderID = h.orderID
+	if err := query.Run(c); err != nil {
+		return app.ErrServerError.Err
+	}
+
+	var prodIDs []int
+	prodQuantityMap := make(map[int]int)
+	for _, item := range query.Items {
+		prodIDs = append(prodIDs, item.ProductID)
+		prodQuantityMap[item.ProductID] = item.Quantity
+	}
+
+	// start a transaction to update the order status and return the stock to the products
+	tx, err := h.db.BeginTx(c, pgx.TxOptions{})
+	if err != nil {
+		return app.ErrServerError.Err
+	}
+
+	h.order.Status = order.StatusCancelled.String()
+	h.order.UpdatedAt = time.Now()
+
+	// update the order status
+	query2 := ordersql.NewUpdateOrderQuery(tx)
+	query2.Values.Order = h.order
+	if err := query2.Run(c); err != nil {
+		tx.Rollback(c)
+		return app.ErrServerError.Err
+	}
+
+	// fetch the product list and lock for update to avoid concurrency issues
+	query3 := prodsql.NewSelectProductListByIDsForUpdateQuery(tx)
+	query3.Where.IDs = prodIDs
+	if err := query3.Run(c); err != nil {
+		tx.Rollback(c)
+		return app.ErrServerError.Err
+	}
+
+	// return stock to products
+	productStock := prodsql.ProductStock{}
+	productStockList := make([]prodsql.ProductStock, len(query3.Products))
+
+	for _, item := range query3.Products {
+		productStock.ID = item.ID
+		productStock.Stock = item.Stock + prodQuantityMap[item.ID]
+		productStockList = append(productStockList, productStock)
+	}
+
+	query4 := prodsql.NewUpdateProductsStockByIDsQuery(tx)
+	query4.Values.ProductStockList = productStockList
+	if err := query4.Run(c); err != nil {
+		tx.Rollback(c)
+		return app.ErrServerError.Err
+	}
+
+	if err := tx.Commit(c); err != nil {
+		return app.ErrServerError.Err
+	}
+	return nil
+}
+
+func (h *orderUpdateHandler) buildResponse(c *gin.Context) error {
+	// fetch the order view after the updates
+	query := ordersql.NewSelectOrderViewByIDQuery(h.db)
+	query.Where.ID = h.orderID
+	if err := query.Run(c); err != nil {
+		return app.ErrServerError.Err
+	}
+
+	// fetch the order items view to build the order
+	query2 := ordersql.NewSelectOrderItemViewListByOrderIDQuery(h.db)
+	query2.Where.OrderID = h.orderID
+	if err := query2.Run(c); err != nil {
+		return app.ErrServerError.Err
+	}
+	query.OrderView.OrderItems = query2.Items
+	for _, item := range query2.Items {
+		query.OrderView.TotalPrice += item.ItemsPrice
+	}
+
+	// index the order in elasticsearch
+	indexer := orderesrc.NewOrderIndexer(h.es, "orders")
+	if err := indexer.Run(c, query.OrderView); err != nil {
+		return app.ErrServerError.Err
+	}
+
+	h.orderView = query.OrderView
 	return nil
 }

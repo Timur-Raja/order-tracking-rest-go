@@ -26,7 +26,7 @@ func NewOrderIndexer(client *elastic.Client, indexName string) *orderIndexer {
 	}
 }
 
-// indexes the given OrderView into Elasticsearch.
+// indexes the given OrderView into Elasticsearch
 // Uses the order ID as the ES document ID and forces a refresh so the document
 func (i *orderIndexer) Run(ctx context.Context, o *order.OrderView) error {
 	return es.BuildESIndex(ctx, i.Client, i.IndexName, fmt.Sprintf("%d", o.ID), o)
@@ -34,7 +34,7 @@ func (i *orderIndexer) Run(ctx context.Context, o *order.OrderView) error {
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 
-type ordersViewSearchQuery struct {
+type ordersSearchQuery struct {
 	Client *elastic.Client
 	Index  string
 
@@ -49,15 +49,15 @@ type ordersViewSearchQuery struct {
 	}
 }
 
-func NewOrdersViewSearchQuery(client *elastic.Client, indexName string) *ordersViewSearchQuery {
-	return &ordersViewSearchQuery{
+func NewOrdersSearchQuery(client *elastic.Client, indexName string) *ordersSearchQuery {
+	return &ordersSearchQuery{
 		Client: client,
 		Index:  indexName,
 	}
 }
 
 // run text search and date filtering query
-func (q *ordersViewSearchQuery) Run(ctx context.Context) error {
+func (q *ordersSearchQuery) Run(ctx context.Context) error {
 	// build bool query
 	boolQ := elastic.NewBoolQuery()
 

@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/timur-raja/order-tracking-rest-go/app"
+	"github.com/timur-raja/order-tracking-rest-go/app/order"
 	"github.com/timur-raja/order-tracking-rest-go/app/order/ordersql"
 )
 
@@ -32,7 +33,7 @@ func (h *orderReadHandler) exec(c *gin.Context) {
 	query.Where.ID = id
 	if err := query.Run(c); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			app.AbortWithErrorResponse(c, app.ErrResourceNotFound, err)
+			app.AbortWithErrorResponse(c, order.ErrOrderNotFound, err)
 		} else {
 			app.AbortWithErrorResponse(c, app.ErrServerError, err)
 		}

@@ -109,3 +109,31 @@ func (q *selectUserViewByIDQuery) Run(ctx context.Context) error {
 	}
 	return nil
 }
+
+type SelectEmailExistsQuery struct {
+	db.BaseQuery
+	Where struct {
+		Email string
+	}
+	Exists bool
+}
+
+func NewSelectEmailExistsQuery(conn db.PGExecer) *SelectEmailExistsQuery {
+	return &SelectEmailExistsQuery{
+		BaseQuery: db.BaseQuery{DBConn: conn},
+	}
+}
+
+func (q *SelectEmailExistsQuery) Run(ctx context.Context) error {
+	query := `
+		SELECT EXISTS (
+			SELECT 1 FROM users WHERE email = $1
+		) AS exists;
+	`
+	err := pgxscan.Get(ctx, q.DBConn, &q.Exists, query, q.Where.Email)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

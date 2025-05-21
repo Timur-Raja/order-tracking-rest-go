@@ -8,5 +8,6 @@ import (
 
 var (
 	ErrUserNotFound       = app.NewAPIError(http.StatusNotFound, "user not found")
-	ErrInvalidCredentials = app.NewAPIError(http.StatusBadRequest, "invalid credentials")
+	ErrInvalidCredentials = app.NewAPIError(http.StatusUnauthorized, "invalid credentials")
+	ErrUserAlreadyExists  = app.NewAPIError(http.StatusConflict, "user already exists")
 )

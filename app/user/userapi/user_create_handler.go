@@ -35,8 +35,11 @@ func (h *userCreateHandler) exec(c *gin.Context) {
 		return
 	}
 
+	// sanitize the params against xss attacks
+	h.params.Sanitize()
+
 	// validate user params and populate new user struct
-	if err := h.buildUser(); err != nil {
+	if err := h.buildUser(c); err != nil {
 		app.AbortWithErrorResponse(c, app.ErrServerError, err)
 		return
 	}
@@ -60,19 +63,32 @@ func (h *userCreateHandler) exec(c *gin.Context) {
 	c.JSON(201, query2.UserView)
 }
 
-func (h *userCreateHandler) buildUser() error {
+func (h *userCreateHandler) buildUser(c *gin.Context) error {
 	h.newUser = new(user.User)
 
-	h.newUser.Email = strings.ToLower(strings.TrimSpace(*h.params.Email))
-	h.newUser.Name = strings.TrimSpace(*h.params.Name)
-	//todo check email uniqueness
+	h.newUser.Email = strings.ToLower(strings.TrimSpace(h.params.Email))
+	h.newUser.Name = strings.TrimSpace(h.params.Name)
+
+	// check if the email already exists
+	query := usersql.NewSelectEmailExistsQuery(h.db)
+	query.Where.Email = h.newUser.Email
+	if err := query.Run(c); err != nil {
+		app.AbortWithErrorResponse(c, app.ErrServerError, err)
+		return app.ErrServerError.Err
+	}
+
+	if query.Exists {
+		app.AbortWithErrorResponse(c, user.ErrUserAlreadyExists, user.ErrUserAlreadyExists.Err)
+		return user.ErrUserAlreadyExists.Err
+	}
 
 	// hash password
 	passwordHash, err := bcrypt.GenerateFromPassword(
-		[]byte(*h.params.Password), bcrypt.DefaultCost,
+		[]byte(h.params.Password), bcrypt.DefaultCost,
 	)
 	if err != nil {
-		return err
+		app.AbortWithErrorResponse(c, user.ErrInvalidCredentials, err)
+		return user.ErrInvalidCredentials.Err
 	}
 
 	h.newUser.Password = string(passwordHash)

@@ -33,7 +33,7 @@ func AbortWithErrorResponse(c *gin.Context, apiError *apiError, privateError ...
 
 // generic errors
 var (
-	ErrFailedToLoadParams     = NewAPIError(http.StatusInternalServerError, "failed to load params")
+	ErrFailedToLoadParams     = NewAPIError(http.StatusBadRequest, "failed to load params")
 	ErrMissingBodyParams      = NewAPIError(http.StatusBadRequest, "missing request body params")
 	ErrServerError            = NewAPIError(http.StatusInternalServerError, "internal server error")
 	ErrAuthenticationRequired = NewAPIError(http.StatusUnauthorized, "Authentication required")

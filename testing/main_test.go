@@ -12,6 +12,7 @@ import (
 	"github.com/timur-raja/order-tracking-rest-go/db"
 
 	"github.com/gin-gonic/gin"
+	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/olivere/elastic/v7"
 )
 

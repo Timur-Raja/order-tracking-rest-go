@@ -1,15 +1,20 @@
 package order
 
-type Status int
+import (
+	"encoding/json"
+	"fmt"
+)
+
+type OrderStatus int
 
 const (
-	StatusCreated Status = iota
+	StatusCreated OrderStatus = iota
 	StatusProcessing
 	StatusCompleted
 	StatusCancelled
 )
 
-func (s Status) String() string {
+func (s OrderStatus) String() string {
 	switch s {
 	case StatusCreated:
 		return "created"
@@ -22,4 +27,26 @@ func (s Status) String() string {
 	default:
 		return "unknown"
 	}
+}
+
+// custom json marshalling to prevent sending invalid status
+func (s *OrderStatus) UnmarshalJSON(data []byte) error {
+	var statusString string
+	if err := json.Unmarshal(data, &statusString); err != nil {
+		return err
+	}
+
+	switch statusString {
+	case "created":
+		*s = StatusCreated
+	case "processing":
+		*s = StatusProcessing
+	case "completed":
+		*s = StatusCompleted
+	case "cancelled":
+		*s = StatusCancelled
+	default:
+		return fmt.Errorf("invalid status: %s", statusString)
+	}
+	return nil
 }

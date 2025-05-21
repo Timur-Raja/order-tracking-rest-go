@@ -25,7 +25,7 @@ func OrderListHandler(db *pgxpool.Pool, es *elastic.Client) gin.HandlerFunc {
 }
 
 func (h *orderListHandler) Exec(c *gin.Context) {
-	esQuery := orderesrc.NewOrdersViewSearchQuery(h.es, "orders")
+	esQuery := orderesrc.NewOrdersSearchQuery(h.es, "orders")
 	if err := c.ShouldBindQuery(&esQuery.Params); err != nil {
 		app.AbortWithErrorResponse(c, app.ErrFailedToLoadParams, err)
 		return

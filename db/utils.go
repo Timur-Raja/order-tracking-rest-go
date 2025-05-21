@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// CreateValuesStrings dynamically generates a string of parameters for SQL queries based on the provided items and fields.
+// CreateValuesStrings dynamically generates a string of parameters for SQL queries based on the provided items and fields for batch inserts
 func CreateValueStrings[T any](items []T, fields []string) (string, []interface{}) {
 	var (
 		valueStrings []string
