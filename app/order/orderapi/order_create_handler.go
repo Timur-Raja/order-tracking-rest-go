@@ -12,13 +12,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/olivere/elastic/v7"
 )
 
 type orderCreateHandler struct {
-	db *pgxpool.Pool
-	es *elastic.Client
+	connections *app.Services
 
 	// req
 	userID int
@@ -33,16 +30,15 @@ type orderCreateHandler struct {
 	items []*order.OrderItem
 }
 
-func OrderCreateHandler(db *pgxpool.Pool, es *elastic.Client) gin.HandlerFunc {
+func OrderCreateHandler(services *app.Services) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		h := &orderCreateHandler{
-			db:       db,
-			es:       es,
-			params:   &order.OrderCreateParams{},
-			itemsMap: make(map[int]int),
-			prodIDs:  []int{},
-			products: []*product.Product{},
-			items:    []*order.OrderItem{},
+			connections: services,
+			params:      &order.OrderCreateParams{},
+			itemsMap:    make(map[int]int),
+			prodIDs:     []int{},
+			products:    []*product.Product{},
+			items:       []*order.OrderItem{},
 		}
 		h.Exec(c)
 	}
@@ -59,12 +55,12 @@ func (h *orderCreateHandler) Exec(c *gin.Context) {
 	// this is needed because we need to update the product stock and avoid inconsistent data
 
 	// start a transaction
-	tx, err := h.db.BeginTx(c, pgx.TxOptions{})
+	tx, err := h.connections.DB.BeginTx(c, pgx.TxOptions{})
 	if err != nil {
 		app.AbortWithErrorResponse(c, app.ErrServerError, err)
 		return
 	}
-	query := prodsql.NewSelectProductListByIDsForUpdateQuery(h.db)
+	query := prodsql.NewSelectProductListByIDsForUpdateQuery(h.connections.DB)
 	query.Where.IDs = h.prodIDs
 	if err := query.Run(c); err != nil {
 		tx.Rollback(c)
@@ -87,9 +83,10 @@ func (h *orderCreateHandler) Exec(c *gin.Context) {
 		app.AbortWithErrorResponse(c, product.ErrProductsNotFound, err)
 		return
 	}
+	// todo add stock quantity check
 
 	// insert order items and orders as part of the transaction
-	query2 := ordersql.NewInsertOrderQuery(tx)
+	query2 := ordersql.NewInsertOrderQuery(tx, h.connections.Redis)
 	query2.Values.UserID = h.userID
 	query2.Values.Status = order.StatusCreated.String()
 	query2.Values.ShippingAddress = h.params.ShippingAddress
@@ -104,13 +101,13 @@ func (h *orderCreateHandler) Exec(c *gin.Context) {
 
 	orderID := query2.Returning.ID
 
-	// return stock to products
+	// remove stock from products
 	productStock := prodsql.ProductStock{}
 	productStockList := make([]prodsql.ProductStock, len(h.products))
 
 	for _, item := range h.products {
 		productStock.ID = item.ID
-		productStock.Stock = item.Stock + h.itemsMap[item.ID]
+		productStock.Stock = item.Stock - h.itemsMap[item.ID]
 		productStockList = append(productStockList, productStock)
 	}
 
@@ -141,7 +138,7 @@ func (h *orderCreateHandler) Exec(c *gin.Context) {
 	}
 
 	// return the order
-	query5 := ordersql.NewSelectOrderViewByIDQuery(h.db)
+	query5 := ordersql.NewSelectOrderViewByIDQuery(h.connections.DB, h.connections.Redis)
 	query5.Where.ID = orderID
 	if err := query5.Run(c); err != nil {
 		app.AbortWithErrorResponse(c, app.ErrServerError, err)
@@ -149,7 +146,7 @@ func (h *orderCreateHandler) Exec(c *gin.Context) {
 	}
 
 	// fetch the items related to the order
-	query6 := ordersql.NewSelectOrderItemViewListByOrderIDQuery(h.db)
+	query6 := ordersql.NewSelectOrderItemViewListByOrderIDQuery(h.connections.DB)
 	query6.Where.OrderID = orderID
 	if err := query6.Run(c); err != nil {
 		app.AbortWithErrorResponse(c, app.ErrServerError, err)
@@ -162,7 +159,7 @@ func (h *orderCreateHandler) Exec(c *gin.Context) {
 	}
 
 	// index order in elasticsearch
-	indexer := orderesrc.NewOrderIndexer(h.es, "orders")
+	indexer := orderesrc.NewOrderIndexer(h.connections.ES, "orders")
 	if err := indexer.Run(c, query5.OrderView); err != nil {
 		app.AbortWithErrorResponse(c, app.ErrServerError, err)
 		return

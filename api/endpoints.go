@@ -1,45 +1,42 @@
 package api
 
 import (
+	"github.com/timur-raja/order-tracking-rest-go/app"
 	"github.com/timur-raja/order-tracking-rest-go/app/order/orderapi"
 	"github.com/timur-raja/order-tracking-rest-go/app/user/userapi"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/olivere/elastic/v7"
 )
 
 // endpoints.go setsup the API endpoints for the application.
 
 type Router struct {
-	db *pgxpool.Pool
-	es *elastic.Client
+	*app.Services
 }
 
-func NewRouter(db *pgxpool.Pool, es *elastic.Client) *Router {
+func NewRouter(services *app.Services) *Router {
 	return &Router{
-		db: db,
-		es: es,
+		Services: services,
 	}
 }
 
 func (r *Router) Setup(router *gin.Engine) {
 	public := router.Group("/")
 	{
-		public.POST("/signup", userapi.UserCreateHandler(r.db))
-		public.POST("/signin", userapi.UserSigninHandler(r.db))
+		public.POST("/signup", userapi.UserCreateHandler(r.Services))
+		public.POST("/signin", userapi.UserSigninHandler(r.Services))
 	}
 
 	protected := router.Group("/")
-	protected.Use(SessionAuth(r.db))
+	protected.Use(SessionAuth(r.Services.DB))
 	{
 		protected.POST(
-			"/orders", orderapi.OrderCreateHandler(r.db, r.es))
+			"/orders", orderapi.OrderCreateHandler(r.Services))
 		protected.PATCH(
-			"/orders/:order_id", orderapi.OrderUpdateHandler(r.db, r.es)) // handles edit and cancellation
+			"/orders/:order_id", orderapi.OrderUpdateHandler(r.Services)) // handles edit and cancellation
 		protected.GET(
-			"/orders", orderapi.OrderListHandler(r.db, r.es))
+			"/orders", orderapi.OrderListHandler(r.Services))
 		protected.GET(
-			"/orders/:order_id", orderapi.OrderReadHandler(r.db))
+			"/orders/:order_id", orderapi.OrderReadHandler(r.Services))
 	}
 }

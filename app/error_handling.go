@@ -38,4 +38,5 @@ var (
 	ErrServerError            = NewAPIError(http.StatusInternalServerError, "internal server error")
 	ErrAuthenticationRequired = NewAPIError(http.StatusUnauthorized, "Authentication required")
 	ErrResourceNotFound       = NewAPIError(http.StatusNotFound, "resource not found")
+	ErrNoRedisConnection      = NewAPIError(http.StatusInternalServerError, "no redis connection")
 )

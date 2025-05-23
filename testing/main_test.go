@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"net/http/httptest"
@@ -8,12 +9,12 @@ import (
 	"testing"
 
 	"github.com/timur-raja/order-tracking-rest-go/api"
+	"github.com/timur-raja/order-tracking-rest-go/app"
 	"github.com/timur-raja/order-tracking-rest-go/config"
 	"github.com/timur-raja/order-tracking-rest-go/db"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/jackc/pgx/v4/stdlib"
-	"github.com/olivere/elastic/v7"
 )
 
 var baseURL string
@@ -22,7 +23,7 @@ func TestMain(m *testing.M) {
 	// point tests at the test‐only ES on 9201
 	os.Setenv("ES_URL", "http://localhost:9201")
 
-	// load config (now cfg.ES.URL == "http://localhost:9201")
+	// load config
 	if err := os.Chdir(".."); err != nil {
 		log.Fatalf("cd: %v", err)
 	}
@@ -31,8 +32,8 @@ func TestMain(m *testing.M) {
 		log.Fatalf("load config: %v", err)
 	}
 
-	// migrate & connect Postgres
-	sqlDB, err := sql.Open("pgx", cfg.TestDB.DSN)
+	// run migrations on testdb
+	sqlDB, err := sql.Open("pgx", cfg.DB.TestDSN)
 	if err != nil {
 		log.Fatalf("open test db: %v", err)
 	}
@@ -44,21 +45,8 @@ func TestMain(m *testing.M) {
 		sqlDB.Close()
 	}()
 
-	pgPool, err := db.Init(cfg.TestDB.DSN)
-	if err != nil {
-		log.Fatalf("init pg pool: %v", err)
-	}
-	defer pgPool.Close()
-
-	// init ES test service
-	esClient, err := elastic.NewClient(
-		elastic.SetURL(cfg.TestES.URL),
-		elastic.SetSniff(false),
-		elastic.SetHealthcheck(false),
-	)
-	if err != nil {
-		log.Fatalf("init ES client: %v", err)
-	}
+	// setup test services
+	services := app.InitServices(*cfg, true)
 
 	// start up your Gin router
 	gin.SetMode(gin.TestMode)
@@ -66,7 +54,7 @@ func TestMain(m *testing.M) {
 	server.Use(gin.Recovery(), api.ErrorLogger())
 
 	// pass both pg and es into your router
-	r := api.NewRouter(pgPool, esClient)
+	r := api.NewRouter(services)
 	r.Setup(server)
 
 	ts := httptest.NewServer(server)
@@ -74,10 +62,18 @@ func TestMain(m *testing.M) {
 	defer ts.Close()
 
 	code := m.Run()
-	//clean testing db for next run
+	//clean testing dbs for next run
 	if err := db.MigrateDrop(sqlDB, "db/migrations"); err != nil {
 		log.Fatalf("cleaning dn migrations: %v", err)
 	}
 	sqlDB.Close()
+
+	if err := services.Redis.FlushAll(context.Background()); err != nil {
+		log.Printf("flushing redis: %v", err)
+	}
+
+	if _, err := services.ES.DeleteIndex("orders").Do(context.Background()); err != nil {
+		log.Fatalf("deleting elasticsearch indexes: %v", err)
+	}
 	os.Exit(code)
 }

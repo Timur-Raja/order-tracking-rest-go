@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/timur-raja/order-tracking-rest-go/app"
 	"github.com/timur-raja/order-tracking-rest-go/app/user"
 	"github.com/timur-raja/order-tracking-rest-go/app/user/usersql"
@@ -12,17 +11,17 @@ import (
 )
 
 type userCreateHandler struct {
-	db      *pgxpool.Pool
-	params  *user.UserCreateParams
-	newUser *user.User
+	connections *app.Services
+	params      *user.UserCreateParams
+	newUser     *user.User
 }
 
-func UserCreateHandler(db *pgxpool.Pool) gin.HandlerFunc {
+func UserCreateHandler(services *app.Services) gin.HandlerFunc {
 	// Initialize the handler struct with the db connection
 	return func(c *gin.Context) {
 		h := &userCreateHandler{
-			db:     db,
-			params: new(user.UserCreateParams),
+			connections: services,
+			params:      new(user.UserCreateParams),
 		}
 		h.exec(c)
 	}
@@ -45,7 +44,7 @@ func (h *userCreateHandler) exec(c *gin.Context) {
 	}
 
 	// execute the user insert query with values read and validated from the request body
-	query := usersql.NewInsertUserQuery(h.db)
+	query := usersql.NewInsertUserQuery(h.connections.DB)
 	query.Values.User = *h.newUser
 	if err := query.Run(c); err != nil {
 		app.AbortWithErrorResponse(c, app.ErrServerError, err)
@@ -53,7 +52,7 @@ func (h *userCreateHandler) exec(c *gin.Context) {
 	}
 
 	// fetch the view of the newly created user to send to the FE
-	query2 := usersql.NewSelectUserViewByIDQuery(h.db)
+	query2 := usersql.NewSelectUserViewByIDQuery(h.connections.DB)
 	query2.Where.ID = query.Returning.ID
 	if err := query2.Run(c); err != nil {
 		app.AbortWithErrorResponse(c, app.ErrServerError, err)
@@ -70,7 +69,7 @@ func (h *userCreateHandler) buildUser(c *gin.Context) error {
 	h.newUser.Name = strings.TrimSpace(h.params.Name)
 
 	// check if the email already exists
-	query := usersql.NewSelectEmailExistsQuery(h.db)
+	query := usersql.NewSelectEmailExistsQuery(h.connections.DB)
 	query.Where.Email = h.newUser.Email
 	if err := query.Run(c); err != nil {
 		app.AbortWithErrorResponse(c, app.ErrServerError, err)

@@ -14,30 +14,26 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/olivere/elastic/v7"
 )
 
 //for the order update handler we allow just changing the shipping address
 // and cancelling the order
 
 type orderUpdateHandler struct {
-	db        *pgxpool.Pool
-	es        *elastic.Client
-	params    *order.OrderUpdateParams
-	orderID   int
-	order     *order.Order
-	orderView *order.OrderView
+	connections *app.Services
+	params      *order.OrderUpdateParams
+	orderID     int
+	order       *order.Order
+	orderView   *order.OrderView
 }
 
-func OrderUpdateHandler(db *pgxpool.Pool, es *elastic.Client) gin.HandlerFunc {
+func OrderUpdateHandler(services *app.Services) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		h := &orderUpdateHandler{
-			db:        db,
-			es:        es,
-			params:    &order.OrderUpdateParams{},
-			order:     &order.Order{},
-			orderView: &order.OrderView{},
+			connections: services,
+			params:      &order.OrderUpdateParams{},
+			order:       &order.Order{},
+			orderView:   &order.OrderView{},
 		}
 		h.Exec(c)
 	}
@@ -78,7 +74,7 @@ func (h *orderUpdateHandler) Exec(c *gin.Context) {
 			// update the order with the new shipping address
 			h.order.ShippingAddress = *h.params.ShippingAddress
 			h.order.UpdatedAt = time.Now()
-			query := ordersql.NewUpdateOrderQuery(h.db)
+			query := ordersql.NewUpdateOrderQuery(h.connections.DB, h.connections.Redis)
 			query.Values.Order = h.order
 			if err := query.Run(c); err != nil {
 				app.AbortWithErrorResponse(c, app.ErrServerError, err)
@@ -87,7 +83,10 @@ func (h *orderUpdateHandler) Exec(c *gin.Context) {
 		}
 	}
 	// fetch order view to send as response
-	h.buildResponse(c)
+	if err := h.buildResponse(c); err != nil {
+		app.AbortWithErrorResponse(c, app.ErrServerError, err)
+		return
+	}
 	c.JSON(http.StatusOK, h.orderView)
 }
 
@@ -112,7 +111,7 @@ func (h *orderUpdateHandler) prepare(c *gin.Context) error {
 	h.params.Sanitize()
 
 	// load order if it exists
-	query := ordersql.NewSelectOrderByIDQuery(h.db)
+	query := ordersql.NewSelectOrderByIDQuery(h.connections.DB, h.connections.Redis)
 	query.Where.ID = h.orderID
 	if err := query.Run(c); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -130,7 +129,7 @@ func (h *orderUpdateHandler) prepare(c *gin.Context) error {
 
 func (h *orderUpdateHandler) cancelOrder(c *gin.Context) error {
 	// fetch related order items
-	query := ordersql.NewSelectOrderItemListByOrderIDQuery(h.db)
+	query := ordersql.NewSelectOrderItemListByOrderIDQuery(h.connections.DB, h.connections.Redis)
 	query.Where.OrderID = h.orderID
 	if err := query.Run(c); err != nil {
 		return app.ErrServerError.Err
@@ -144,7 +143,7 @@ func (h *orderUpdateHandler) cancelOrder(c *gin.Context) error {
 	}
 
 	// start a transaction to update the order status and return the stock to the products
-	tx, err := h.db.BeginTx(c, pgx.TxOptions{})
+	tx, err := h.connections.DB.BeginTx(c, pgx.TxOptions{})
 	if err != nil {
 		return app.ErrServerError.Err
 	}
@@ -153,7 +152,7 @@ func (h *orderUpdateHandler) cancelOrder(c *gin.Context) error {
 	h.order.UpdatedAt = time.Now()
 
 	// update the order status
-	query2 := ordersql.NewUpdateOrderQuery(tx)
+	query2 := ordersql.NewUpdateOrderQuery(tx, h.connections.Redis)
 	query2.Values.Order = h.order
 	if err := query2.Run(c); err != nil {
 		tx.Rollback(c)
@@ -193,14 +192,14 @@ func (h *orderUpdateHandler) cancelOrder(c *gin.Context) error {
 
 func (h *orderUpdateHandler) buildResponse(c *gin.Context) error {
 	// fetch the order view after the updates
-	query := ordersql.NewSelectOrderViewByIDQuery(h.db)
+	query := ordersql.NewSelectOrderViewByIDQuery(h.connections.DB, h.connections.Redis)
 	query.Where.ID = h.orderID
 	if err := query.Run(c); err != nil {
 		return app.ErrServerError.Err
 	}
 
 	// fetch the order items view to build the order
-	query2 := ordersql.NewSelectOrderItemViewListByOrderIDQuery(h.db)
+	query2 := ordersql.NewSelectOrderItemViewListByOrderIDQuery(h.connections.DB)
 	query2.Where.OrderID = h.orderID
 	if err := query2.Run(c); err != nil {
 		return app.ErrServerError.Err
@@ -211,7 +210,7 @@ func (h *orderUpdateHandler) buildResponse(c *gin.Context) error {
 	}
 
 	// index the order in elasticsearch
-	indexer := orderesrc.NewOrderIndexer(h.es, "orders")
+	indexer := orderesrc.NewOrderIndexer(h.connections.ES, "orders")
 	if err := indexer.Run(c, query.OrderView); err != nil {
 		return app.ErrServerError.Err
 	}

@@ -7,25 +7,21 @@ import (
 	"github.com/timur-raja/order-tracking-rest-go/app/order/orderesrc"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/olivere/elastic/v7"
 )
 
 type orderListHandler struct {
-	db *pgxpool.Pool
-	es *elastic.Client
+	connections *app.Services
 }
 
-func OrderListHandler(db *pgxpool.Pool, es *elastic.Client) gin.HandlerFunc {
+func OrderListHandler(services *app.Services) gin.HandlerFunc {
 	h := &orderListHandler{
-		db: db,
-		es: es,
+		connections: services,
 	}
 	return h.Exec
 }
 
 func (h *orderListHandler) Exec(c *gin.Context) {
-	esQuery := orderesrc.NewOrdersSearchQuery(h.es, "orders")
+	esQuery := orderesrc.NewOrdersSearchQuery(h.connections.ES, "orders")
 	if err := c.ShouldBindQuery(&esQuery.Params); err != nil {
 		app.AbortWithErrorResponse(c, app.ErrFailedToLoadParams, err)
 		return

@@ -1,15 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/timur-raja/order-tracking-rest-go/api"
+	"github.com/timur-raja/order-tracking-rest-go/app"
 	"github.com/timur-raja/order-tracking-rest-go/config"
-	"github.com/timur-raja/order-tracking-rest-go/db"
 
 	"github.com/gin-gonic/gin"
-	"github.com/olivere/elastic/v7"
 )
 
 func main() {
@@ -24,27 +22,14 @@ func run() error {
 		return err
 	}
 
-	dbConn, err := db.Init(cfg.DB.DSN)
-	if err != nil {
-		return err
-	}
-	defer dbConn.Close()
-
-	esClient, err := elastic.NewClient(
-		elastic.SetURL(cfg.ES.URL),
-		elastic.SetSniff(false),
-		elastic.SetHealthcheck(false),
-	)
-	if err != nil {
-		return fmt.Errorf("es init: %w", err)
-	}
+	services := app.InitServices(*cfg, false)
 
 	server := gin.New()
 	server.Use(gin.Recovery(), api.ErrorLogger())
 
-	r := api.NewRouter(dbConn, esClient)
+	r := api.NewRouter(services)
 	r.Setup(server)
 
-	addr := fmt.Sprintf("%s:%s", cfg.WebServer.Host, cfg.WebServer.Port)
+	addr := cfg.WebServer.URL
 	return server.Run(addr)
 }

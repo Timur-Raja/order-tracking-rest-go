@@ -11,22 +11,27 @@ import (
 type Config struct {
 	WebServer WebServerConfig
 	DB        DBConfig
-	TestDB    DBConfig
 	ES        ESConfig
-	TestES    ESConfig
+	Redis     RedisConfig
 }
 
 type WebServerConfig struct {
-	Port string
-	Host string
+	URL string
 }
 
 type DBConfig struct {
-	DSN string
+	DSN     string
+	TestDSN string
 }
 
 type ESConfig struct {
-	URL string
+	URL     string
+	TestURL string
+}
+
+type RedisConfig struct {
+	URL     string
+	TestURL string
 }
 
 func (c *Config) LoadConfig() error {
@@ -36,12 +41,13 @@ func (c *Config) LoadConfig() error {
 	}
 
 	var envMap = map[string]*string{
-		"DB_DSN":      &c.DB.DSN,
-		"TEST_DB_DSN": &c.TestDB.DSN,
-		"ES_URL":      &c.ES.URL,
-		"TEST_ES_URL": &c.TestES.URL,
-		"APP_PORT":    &c.WebServer.Port,
-		"APP_HOST":    &c.WebServer.Host,
+		"DB_DSN":         &c.DB.DSN,
+		"TEST_DB_DSN":    &c.DB.TestDSN,
+		"ES_URL":         &c.ES.URL,
+		"TEST_ES_URL":    &c.ES.TestURL,
+		"APP_URL":        &c.WebServer.URL,
+		"REDIS_URL":      &c.Redis.URL,
+		"TEST_REDIS_URL": &c.Redis.TestURL,
 	}
 
 	for key, value := range envMap {

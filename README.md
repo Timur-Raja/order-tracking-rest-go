@@ -1,6 +1,6 @@
 # Order Tracking REST API
 
-A RESTful service for managing users, products, and orders, built with Go using GIN framework and Postgres as DB and Elastic search for text search and filtering, containerized with Docker.
+A RESTful service for managing users, products, and orders, built with Go using GIN framework and Postgres as DB, Elastic search for text search and filtering, and Redis for caching containerized with Docker.
 
 ## Improvments needed, not added due to time constraints 
 - independent tests from each other
@@ -8,7 +8,9 @@ A RESTful service for managing users, products, and orders, built with Go using 
 - signout endpoint
 - product related endpoints
 - general more throught out code architecture improvements
-- caching with redis
+- caching other tables (for now only order and order_items were covered)
+- possibly update concurrency stock handling to be managed through redis
+- planned to add a rate limiter with redis
 
 ## Project Structure
 

@@ -6,18 +6,20 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/timur-raja/order-tracking-rest-go/app"
 	"github.com/timur-raja/order-tracking-rest-go/app/order"
 	"github.com/timur-raja/order-tracking-rest-go/app/order/ordersql"
 )
 
 type orderReadHandler struct {
-	db *pgxpool.Pool
+	connections *app.Services
 }
 
-func OrderReadHandler(db *pgxpool.Pool) gin.HandlerFunc {
-	return (&orderReadHandler{db: db}).exec
+func OrderReadHandler(services *app.Services) gin.HandlerFunc {
+	h := &orderReadHandler{
+		connections: services,
+	}
+	return h.exec
 }
 
 func (h *orderReadHandler) exec(c *gin.Context) {
@@ -29,7 +31,7 @@ func (h *orderReadHandler) exec(c *gin.Context) {
 		return
 	}
 
-	query := ordersql.NewSelectOrderViewByIDQuery(h.db)
+	query := ordersql.NewSelectOrderViewByIDQuery(h.connections.DB, h.connections.Redis)
 	query.Where.ID = id
 	if err := query.Run(c); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -40,7 +42,7 @@ func (h *orderReadHandler) exec(c *gin.Context) {
 		return
 	}
 
-	query2 := ordersql.NewSelectOrderItemViewListByOrderIDQuery(h.db)
+	query2 := ordersql.NewSelectOrderItemViewListByOrderIDQuery(h.connections.DB)
 	query2.Where.OrderID = id
 	if err := query2.Run(c); err != nil {
 		app.AbortWithErrorResponse(c, app.ErrServerError, err)

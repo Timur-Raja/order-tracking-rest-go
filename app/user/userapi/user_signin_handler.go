@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/timur-raja/order-tracking-rest-go/app"
 	"github.com/timur-raja/order-tracking-rest-go/app/user"
 	"github.com/timur-raja/order-tracking-rest-go/app/user/usersql"
@@ -15,16 +14,16 @@ import (
 )
 
 type userSigninHandler struct {
-	db     *pgxpool.Pool
-	params *user.UserSigninParams
+	connections *app.Services
+	params      *user.UserSigninParams
 }
 
-func UserSigninHandler(db *pgxpool.Pool) gin.HandlerFunc {
+func UserSigninHandler(services *app.Services) gin.HandlerFunc {
 	// Initialize the handler struct with the db connection
 	return func(c *gin.Context) {
 		h := &userSigninHandler{
-			db:     db,
-			params: new(user.UserSigninParams),
+			connections: services,
+			params:      new(user.UserSigninParams),
 		}
 		h.exec(c)
 	}
@@ -45,7 +44,7 @@ func (h *userSigninHandler) exec(c *gin.Context) {
 	email := strings.ToLower(strings.TrimSpace(h.params.Email))
 
 	// fetch the user associated to the email in the request
-	query := usersql.NewSelectUserByEmailQuery(h.db)
+	query := usersql.NewSelectUserByEmailQuery(h.connections.DB)
 	query.Where.Email = email
 	if err := query.Run(c); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -72,7 +71,7 @@ func (h *userSigninHandler) exec(c *gin.Context) {
 	}
 
 	// insert user session
-	query2 := usersql.NewInsertSessionQuery(h.db)
+	query2 := usersql.NewInsertSessionQuery(h.connections.DB)
 	query2.Values.Session.Token = token
 	query2.Values.UserID = userInfo.ID
 	query2.Values.Session.CreatedAt = time.Now()
@@ -92,7 +91,7 @@ func (h *userSigninHandler) exec(c *gin.Context) {
 		true,
 	)
 
-	query3 := usersql.NewSelectUserViewByIDQuery(h.db)
+	query3 := usersql.NewSelectUserViewByIDQuery(h.connections.DB)
 	query3.Where.ID = userInfo.ID
 	if err := query3.Run(c); err != nil {
 		app.AbortWithErrorResponse(c, app.ErrServerError, err)
