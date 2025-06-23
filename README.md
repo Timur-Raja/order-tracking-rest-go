@@ -2,15 +2,13 @@
 
 Example of a RESTful service for managing users, products, and orders, built with Go using GIN framework and Postgres as DB, Elastic search for text search and filtering, and Redis for caching containerized with Docker.
 
-## Improvments needed, not added due to time constraints 
+## Improvments TODO
 - independent tests from each other
 - some extra validation and err checking in business logic
-- signout endpoint
+- signout endpoint to complete access logic
 - product related endpoints
-- general more throught out code architecture improvements
 - caching other tables (for now only order and order_items were covered)
-- possibly update concurrency stock handling to be managed through redis
-- planned to add a rate limiter with redis
+- rate limiter through redis
 
 ## Project Structure
 
@@ -32,7 +30,7 @@ Example of a RESTful service for managing users, products, and orders, built wit
 │   └── migrations/        # Up/down migration files
 ├── es/
 │   └── utils.go          # util function to populate elastic search indexes
-├── app/00000000000000
+├── app/
 │   ├── user/              # User business logic and SQL queries
 │   ├── order/             # Order business logic and SQL queries
 │   └── product/           # Product business logic and SQL queries
