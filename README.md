@@ -41,7 +41,6 @@ A RESTful service for managing users, products, and orders, built with Go using 
 │   └── endpoints_test.go  # Sequential endpoint tests
 ├── go.mod
 └── go.sum
-```p'è00000000000
  ```
 
 ## Features
